@@ -39,6 +39,7 @@ fi
 
 # 推送到 GitHub
 echo "📤 推送到 GitHub..."
+git remote set-url origin git@github.com:Hsieh-Yu-Hung/JWT_Midware.git
 git push -u origin main
 
 # 創建 release tag
