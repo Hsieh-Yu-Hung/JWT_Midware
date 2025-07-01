@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# TAG
+TAG="v1.0.1"
+
 # 推送 JWT Auth Middleware 到 GitHub 腳本
 
 set -e
@@ -26,7 +29,7 @@ git add .
 
 # 提交變更
 echo "💾 提交變更..."
-git commit -m "feat: Initial release of JWT Auth Middleware v1.0.0"
+git commit -m "feat: Initial release of JWT Auth Middleware $TAG"
 
 # 檢查遠端倉庫
 if ! git remote get-url origin > /dev/null 2>&1; then
@@ -44,8 +47,8 @@ git push -u origin main
 
 # 創建 release tag
 echo "🏷️ 創建 release tag..."
-git tag -a v1.0.0 -m "Release v1.0.0"
-git push origin v1.0.0
+git tag -a $TAG -m "Release $TAG"
+git push origin $TAG
 
 echo ""
 echo "🎉 推送完成！"
