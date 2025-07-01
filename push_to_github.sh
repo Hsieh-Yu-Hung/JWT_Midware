@@ -16,6 +16,8 @@ fi
 if [ ! -d ".git" ]; then
     echo "📁 初始化 Git 倉庫..."
     git init
+    # 設置默認分支為 main
+    git branch -M main
 fi
 
 # 添加所有文件
