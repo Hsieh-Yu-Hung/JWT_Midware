@@ -14,19 +14,67 @@
 
 ## 📦 安裝
 
-### 方式一：從本地安裝
+### 方式一：從 GitHub 安裝（推薦）
+
+```bash
+# 安裝最新版本
+pip install git+https://github.com/Hsieh-Yu-Hung/JWT_Midware.git
+
+# 安裝特定版本
+pip install git+https://github.com/Hsieh-Yu-Hung/JWT_Midware.git@v1.0.0
+
+# 安裝開發版本
+pip install git+https://github.com/Hsieh-Yu-Hung/JWT_Midware.git@develop
+```
+
+### 方式二：從本地安裝
 
 ```bash
 # 在專案根目錄執行
 pip install -e .
 ```
 
-### 方式二：複製檔案到新專案
+### 方式三：複製檔案到新專案
 
 ```bash
 # 複製必要檔案
 cp -r jwt_auth_middleware/ /path/to/your/project/
 cp requirements.txt /path/to/your/project/
+```
+
+### 在 requirements.txt 中使用
+
+```txt
+# 安裝最新版本
+git+https://github.com/Hsieh-Yu-Hung/JWT_Midware.git
+
+# 安裝特定版本
+git+https://github.com/Hsieh-Yu-Hung/JWT_Midware.git@v1.0.0
+
+# 安裝開發版本
+git+https://github.com/Hsieh-Yu-Hung/JWT_Midware.git@develop
+```
+
+### 本地開發安裝
+
+如果您想要修改套件或進行開發：
+
+```bash
+# 克隆專案
+git clone https://github.com/Hsieh-Yu-Hung/JWT_Midware.git
+cd JWT_Midware
+
+# 安裝開發依賴
+pip install -e .
+```
+
+### 驗證安裝
+
+安裝完成後，您可以在 Python 中測試：
+
+```python
+from jwt_auth_middleware import JWTManager, token_required, admin_required
+print("JWT Auth Middleware 安裝成功！")
 ```
 
 ## 🔧 基本使用
@@ -37,7 +85,23 @@ cp requirements.txt /path/to/your/project/
 export SECRET_KEY="your-super-secret-key-here"
 ```
 
-### 2. 在 Flask 應用程式中使用
+### 2. 初始化 JWT Manager
+
+```python
+from flask import Flask
+from jwt_auth_middleware import JWTManager
+
+app = Flask(__name__)
+
+# 配置
+app.config['JWT_SECRET_KEY'] = 'your-secret-key'
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = datetime.timedelta(hours=1)
+
+# 初始化 JWT Manager
+jwt_manager = JWTManager(app)
+```
+
+### 3. 在 Flask 應用程式中使用
 
 ```python
 from flask import Flask, request, jsonify
@@ -60,7 +124,7 @@ def login():
     token_data = {
         "sub": user["email"],
         "email": user["email"],
-        "role": user["role"]
+        "roles": user["roles"]
     }
     token = create_access_token(token_data)
   
@@ -83,6 +147,21 @@ def admin_route(current_user):
 @role_required("user")
 def user_route(current_user):
     return jsonify({"message": "User access granted"})
+```
+
+### 4. 手動驗證 Token
+
+```python
+from jwt_auth_middleware import verify_token
+
+@app.route('/verify')
+def verify_route():
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    try:
+        user_data = verify_token(token)
+        return {"valid": True, "user": user_data}
+    except Exception as e:
+        return {"valid": False, "error": str(e)}
 ```
 
 ## 🎯 裝飾器說明
@@ -179,7 +258,7 @@ from jwt_auth_middleware import create_access_token
 token_data = {
     "sub": user["id"],
     "email": user["email"],
-    "role": user["role"],
+    "roles": user["roles"],
     "permissions": user["permissions"]
 }
 
@@ -198,127 +277,133 @@ except Exception as e:
     print(f"Token invalid: {e}")
 ```
 
-### 重新整理 Token
+## 🔄 從現有專案遷移
 
-```python
-from jwt_auth_middleware import refresh_token
+### 1. 更新 requirements.txt
 
-new_token = refresh_token(old_token)
-if new_token:
-    print("Token refreshed successfully")
+```txt
+# 移除舊的 JWT 相關依賴
+# PyJWT==2.8.0  # 保留，因為套件會依賴它
+
+# 添加新的套件
+git+https://github.com/Hsieh-Yu-Hung/JWT_Midware.git
 ```
 
-### 撤銷 Token
+### 2. 更新 app.py
 
 ```python
-from jwt_auth_middleware import revoke_token
+# 舊的導入方式
+# from middleware.jwt_middleware import token_required
+# from core.jwt_utils import create_access_token, verify_token
 
-success = revoke_token(token)
-if success:
-    print("Token revoked successfully")
-```
-
-## 📝 完整範例
-
-參考 `examples/usage_example.py` 查看完整的使用範例。
-
-### 測試 API
-
-```bash
-# 登入
-curl -X POST https://jwt-autfunctions-ypvdbtxjmv.cn-shanghai-vpc.fcapp.run/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email": "admin@example.com", "password": "admin123"}'
-
-# 使用 token 訪問受保護的端點
-curl -X GET https://jwt-autfunctions-ypvdbtxjmv.cn-shanghai-vpc.fcapp.run/protected \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE"
-
-# 訪問管理員端點
-curl -X GET https://jwt-autfunctions-ypvdbtxjmv.cn-shanghai-vpc.fcapp.run/admin/stats \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE"
-```
-
-## 🚀 部署到 Function Compute
-
-這個中間件完全相容於阿里雲 Function Compute：
-
-```python
-# function_compute_adapter.py
-from flask import Flask
-from jwt_auth_middleware import token_required
+# 新的導入方式
+from jwt_auth_middleware import JWTManager, token_required, admin_required
+from jwt_auth_middleware import create_access_token, verify_token
 
 app = Flask(__name__)
 
-@app.route('/protected', methods=['GET'])
-@token_required
-def protected_route(current_user):
-    return jsonify({"user": current_user})
+# 配置 JWT
+app.config['JWT_SECRET_KEY'] = 'your-secret-key'
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = datetime.timedelta(hours=1)
 
-def handler(event, context):
-    # Function Compute 處理邏輯...
-    pass
+# 初始化
+jwt_manager = JWTManager(app)
+
+# 路由保持不變
+@app.route('/protected')
+@token_required
+def protected(current_user):
+    return {"message": "Hello", "user": current_user}
 ```
 
-## 🔧 自定義擴展
-
-### 自定義驗證邏輯
+### 3. 更新路由文件
 
 ```python
-from functools import wraps
-from flask import request, jsonify
-from jwt_auth_middleware import verify_token
+# routes/auth_routes.py
+from jwt_auth_middleware import create_access_token, verify_token
 
-def custom_auth_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        # 自定義驗證邏輯
-        token = request.headers.get('Authorization', '').replace('Bearer ', '')
-      
-        if not token:
-            return jsonify({'message': 'Custom auth required'}), 403
-      
-        try:
-            current_user = verify_token(token)
-            # 額外的驗證邏輯...
-          
-        except Exception as e:
-            return jsonify({'message': str(e)}), 403
-      
-        return f(current_user, *args, **kwargs)
-    return decorated
+@auth_bp.route('/login', methods=['POST'])
+def login():
+    # ... 驗證邏輯 ...
+  
+    # 使用套件中的函數
+    token = create_access_token(token_data)
+    return jsonify({"access_token": token})
 ```
 
-## 📚 API 參考
+## 🗄️ MongoDB 整合
 
-### 裝飾器
+### 1. 配置資料庫
 
-- `token_required(f)` - 驗證 JWT token
-- `admin_required(f)` - 要求管理員權限
-- `role_required(roles)` - 要求特定角色
-- `permission_required(permissions)` - 要求特定權限
+```python
+app.config['MONGODB_URI'] = 'mongodb://localhost:27017/your_db'
+app.config['MONGODB_DB_NAME'] = 'your_db_name'
+```
 
-### 函數
+### 2. 使用黑名單功能
 
-- `create_access_token(data, config=None)` - 建立 JWT token
-- `verify_token(token)` - 驗證 JWT token
-- `revoke_token(token)` - 撤銷 JWT token
-- `refresh_token(token)` - 重新整理 JWT token
-- `get_token_expiration(token)` - 取得 token 過期時間
-- `is_token_expired(token)` - 檢查 token 是否過期
+```python
+from jwt_auth_middleware import BlacklistManager
 
-### 類別
+# 初始化黑名單管理器
+blacklist_manager = BlacklistManager(app)
 
-- `JWTConfig` - JWT 配置類別
+# 在登出時使用
+@auth_bp.route('/logout', methods=['POST'])
+def logout():
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    blacklist_manager.add_to_blacklist(token)
+    return {"message": "Logged out successfully"}
+```
 
-## 🤝 貢獻
+## 🧪 測試
 
-歡迎提交 Issue 和 Pull Request！
+### 1. 運行套件測試
 
-## 📄 授權
+```bash
+cd package/jwt_auth_middleware
+pytest
+```
 
-MIT License
+### 2. 測試整合
 
----
+```bash
+# 在主專案中測試
+python -c "
+from jwt_auth_middleware import JWTManager
+print('✅ 套件導入成功')
+"
+```
 
-這個中間件讓你可以輕鬆地在任何 Flask 專案中實作 JWT 認證，無需重複造輪子！
+## 🔍 故障排除
+
+### 常見問題
+
+1. **ImportError: No module named 'jwt_auth_middleware'**
+
+   - 確保套件已正確安裝：`pip list | grep jwt-auth-middleware`
+2. **ConfigurationError: JWT_SECRET_KEY not set**
+
+   - 確保在 app.config 中設定了 JWT_SECRET_KEY
+3. **Token validation failed**
+
+   - 檢查 token 格式是否正確
+   - 確認 JWT_SECRET_KEY 與生成 token 時使用的相同
+
+### 調試模式
+
+```python
+app.config['JWT_DEBUG'] = True  # 啟用詳細日誌
+```
+
+## 📚 更多資源
+
+- [範例代碼](examples/)
+- [GitHub 倉庫](https://github.com/Hsieh-Yu-Hung/JWT_Midware)
+- [問題回報](https://github.com/Hsieh-Yu-Hung/JWT_Midware/issues)
+
+## 📝 注意事項
+
+- 此套件不再自動發布到 PyPI
+- 所有版本都通過 GitHub Releases 管理
+- 建議使用 GitHub 安裝方式以獲得最新功能和修復

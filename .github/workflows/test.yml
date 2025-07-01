@@ -27,6 +27,10 @@ jobs:
         pip install -r requirements.txt
         pip install pytest pytest-cov
     
+    - name: Install package in development mode
+      run: |
+        pip install -e .
+    
     - name: Run tests
       run: |
         pytest --cov=jwt_auth_middleware --cov-report=xml

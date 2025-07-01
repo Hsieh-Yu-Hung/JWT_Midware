@@ -7,6 +7,46 @@ Provides decorators for JWT token validation and role-based access control.
 from functools import wraps
 from flask import request, jsonify
 from .jwt_utils import verify_token
+from .config import JWTConfig
+
+class JWTManager:
+    """
+    JWT Manager for Flask applications
+    
+    Initializes JWT configuration and provides utility methods for token management.
+    """
+    
+    def __init__(self, app=None):
+        """
+        Initialize JWT Manager
+        
+        Args:
+            app: Flask application instance
+        """
+        self.app = app
+        if app is not None:
+            self.init_app(app)
+    
+    def init_app(self, app):
+        """
+        Initialize JWT configuration with Flask app
+        
+        Args:
+            app: Flask application instance
+        """
+        # Set default JWT configuration
+        app.config.setdefault('JWT_SECRET_KEY', app.config.get('SECRET_KEY'))
+        app.config.setdefault('JWT_ALGORITHM', 'HS256')
+        app.config.setdefault('JWT_ACCESS_TOKEN_EXPIRES', 3600)  # 1 hour
+        app.config.setdefault('JWT_REFRESH_TOKEN_EXPIRES', 86400)  # 24 hours
+        
+        # Create JWT config instance
+        self.jwt_config = JWTConfig(
+            secret_key=app.config['JWT_SECRET_KEY'],
+            algorithm=app.config['JWT_ALGORITHM'],
+            access_token_expires=app.config['JWT_ACCESS_TOKEN_EXPIRES'],
+            refresh_token_expires=app.config['JWT_REFRESH_TOKEN_EXPIRES']
+        )
 
 def token_required(f):
     """
@@ -28,12 +68,12 @@ def token_required(f):
                 token = bearer.split(" ")[1]
 
         if not token:
-            return jsonify({'message': 'Token is missing'}), 403
+            return jsonify({'error': 'Token is missing'}), 401
 
         try:
             current_user = verify_token(token)
         except Exception as e:
-            return jsonify({'message': str(e)}), 403
+            return jsonify({'error': str(e)}), 401
 
         return f(current_user, *args, **kwargs)
 
@@ -59,17 +99,18 @@ def admin_required(f):
                 token = bearer.split(" ")[1]
 
         if not token:
-            return jsonify({'message': 'Token is missing'}), 403
+            return jsonify({'error': 'Token is missing'}), 401
 
         try:
             current_user = verify_token(token)
             
             # 檢查是否為管理員
-            if current_user.get("role") != "admin":
-                return jsonify({'message': 'Admin access required'}), 403
+            user_roles = current_user.get("roles", [])
+            if "admin" not in user_roles:
+                return jsonify({'error': 'Admin access required'}), 403
                 
         except Exception as e:
-            return jsonify({'message': str(e)}), 403
+            return jsonify({'error': str(e)}), 401
 
         return f(current_user, *args, **kwargs)
 
@@ -96,7 +137,7 @@ def role_required(required_roles):
                     token = bearer.split(" ")[1]
 
             if not token:
-                return jsonify({'message': 'Token is missing'}), 403
+                return jsonify({'error': 'Token is missing'}), 401
 
             try:
                 current_user = verify_token(token)
@@ -108,14 +149,14 @@ def role_required(required_roles):
                     roles_list = required_roles
                 
                 # 檢查使用者角色
-                user_role = current_user.get("role")
-                if user_role not in roles_list:
+                user_roles = current_user.get("roles", [])
+                if not any(role in user_roles for role in roles_list):
                     return jsonify({
-                        'message': f'Access denied. Required roles: {roles_list}'
+                        'error': f'Access denied. Required roles: {roles_list}'
                     }), 403
                     
             except Exception as e:
-                return jsonify({'message': str(e)}), 403
+                return jsonify({'error': str(e)}), 401
 
             return f(current_user, *args, **kwargs)
 
@@ -143,7 +184,7 @@ def permission_required(required_permissions):
                     token = bearer.split(" ")[1]
 
             if not token:
-                return jsonify({'message': 'Token is missing'}), 403
+                return jsonify({'error': 'Token is missing'}), 401
 
             try:
                 current_user = verify_token(token)
@@ -158,11 +199,11 @@ def permission_required(required_permissions):
                 user_permissions = current_user.get("permissions", [])
                 if not all(perm in user_permissions for perm in permissions_list):
                     return jsonify({
-                        'message': f'Access denied. Required permissions: {permissions_list}'
+                        'error': f'Access denied. Required permissions: {permissions_list}'
                     }), 403
                     
             except Exception as e:
-                return jsonify({'message': str(e)}), 403
+                return jsonify({'error': str(e)}), 401
 
             return f(current_user, *args, **kwargs)
 
