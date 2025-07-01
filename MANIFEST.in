@@ -1,0 +1,8 @@
+include README.md
+include requirements.txt
+include LICENSE
+include CHANGELOG.md
+recursive-include jwt_auth_middleware *.py
+recursive-include examples *.py *.md
+recursive-exclude * __pycache__
+recursive-exclude * *.py[co] 
