@@ -20,7 +20,7 @@ setup(
         "Source": "https://github.com/Hsieh-Yu-Hung/JWT_Midware",
         "Documentation": "https://github.com/Hsieh-Yu-Hung/JWT_Midware#readme",
     },
-    packages=find_packages(),
+    packages=find_packages(include=["jwt_auth_middleware", "jwt_auth_middleware.*"]),
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",

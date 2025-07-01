@@ -29,9 +29,17 @@ jobs:
     
     - name: Install package in development mode
       run: |
+        echo "Current directory: $(pwd)"
+        echo "Files in current directory:"
+        ls -la
+        echo "Installing package in development mode..."
         pip install -e .
-        python test_import.py
+        echo "Package installation completed"
+        echo "Installed packages:"
         pip list | grep jwt
+        echo "Testing import..."
+        python test_import.py
+        echo "Import test completed"
     
     - name: Run basic tests first
       run: |
