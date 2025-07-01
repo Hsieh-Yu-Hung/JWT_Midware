@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # TAG
-TAG="v1.0.1"
+TAG=$1
 
 # 推送 JWT Auth Middleware 到 GitHub 腳本
 

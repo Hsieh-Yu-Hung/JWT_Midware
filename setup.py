@@ -7,7 +7,7 @@ with open("requirements.txt", "r", encoding="utf-8") as fh:
     requirements = [line.strip() for line in fh if line.strip() and not line.startswith("#")]
 
 setup(
-    name="jwt-auth-middleware",
+    name="jwt_auth_middleware",
     version="1.0.0",
     author="JWT Auth Team",
     author_email="support@jwt-auth.com",

@@ -30,10 +30,16 @@ jobs:
     - name: Install package in development mode
       run: |
         pip install -e .
+        python test_import.py
+        pip list | grep jwt
     
-    - name: Run tests
+    - name: Run basic tests first
       run: |
-        pytest --cov=jwt_auth_middleware --cov-report=xml
+        python -m pytest tests/test_basic.py -v
+    
+    - name: Run all tests
+      run: |
+        python -m pytest tests/ --cov=jwt_auth_middleware --cov-report=xml -v --tb=short
     
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
