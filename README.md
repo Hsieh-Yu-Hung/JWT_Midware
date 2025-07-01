@@ -80,12 +80,12 @@ def admin_route(current_user):
 
 ## 🎯 裝飾器
 
-| 裝飾器 | 說明 | 範例 |
-|--------|------|------|
-| `@token_required` | 驗證 JWT token | `@token_required` |
-| `@admin_required` | 要求管理員權限 | `@admin_required` |
-| `@role_required(roles)` | 要求特定角色 | `@role_required(["admin", "user"])` |
-| `@permission_required(perms)` | 要求特定權限 | `@permission_required("delete_user")` |
+| 裝飾器                          | 說明           | 範例                                    |
+| ------------------------------- | -------------- | --------------------------------------- |
+| `@token_required`             | 驗證 JWT token | `@token_required`                     |
+| `@admin_required`             | 要求管理員權限 | `@admin_required`                     |
+| `@role_required(roles)`       | 要求特定角色   | `@role_required(["admin", "user"])`   |
+| `@permission_required(perms)` | 要求特定權限   | `@permission_required("delete_user")` |
 
 ## ⚙️ 配置
 
@@ -161,6 +161,7 @@ python -m pytest tests/ -v
 ### 自動化版本更新
 
 #### Linux/macOS
+
 ```bash
 # 顯示所有命令
 make help
@@ -179,6 +180,7 @@ make release
 ```
 
 #### Windows (Git Bash)
+
 ```bash
 # 顯示所有命令
 bash make.sh help
@@ -194,24 +196,6 @@ bash make.sh bump-major
 
 # 互動式 release
 bash make.sh release
-```
-
-#### Windows (CMD)
-```cmd
-# 顯示所有命令
-make.bat help
-
-# 更新 patch 版本
-make.bat bump-patch
-
-# 更新 minor 版本
-make.bat bump-minor
-
-# 更新 major 版本
-make.bat bump-major
-
-# 互動式 release
-make.bat release
 ```
 
 ### 手動版本更新
@@ -241,6 +225,7 @@ git push origin v1.0.1
 ```
 
 推送標籤後，GitHub Actions 會自動：
+
 - 構建套件
 - 創建 GitHub Release
 - 上傳構建檔案
@@ -249,11 +234,11 @@ git push origin v1.0.1
 
 ### 常見問題
 
-| 問題 | 解決方案 |
-|------|----------|
+| 問題                                                   | 解決方案                                    |
+| ------------------------------------------------------ | ------------------------------------------- |
 | `ImportError: No module named 'jwt_auth_middleware'` | 確保套件已正確安裝：`pip list \| grep jwt` |
-| `ConfigurationError: JWT_SECRET_KEY not set` | 在 app.config 中設定 JWT_SECRET_KEY |
-| `Token validation failed` | 檢查 token 格式和 secret key |
+| `ConfigurationError: JWT_SECRET_KEY not set`         | 在 app.config 中設定 JWT_SECRET_KEY         |
+| `Token validation failed`                            | 檢查 token 格式和 secret key                |
 
 ### 調試模式
 
