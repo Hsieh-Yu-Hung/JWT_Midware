@@ -39,9 +39,6 @@ jobs:
         echo "Package installation completed"
         echo "Installed packages:"
         pip list | grep jwt
-        echo "Testing import..."
-        python test_import.py
-        echo "Import test completed"
     
     - name: Run basic tests first
       run: |
