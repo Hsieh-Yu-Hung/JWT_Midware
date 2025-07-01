@@ -1,7 +1,6 @@
 import pytest
 from flask import Flask, jsonify
-from jwt_auth_middleware import JWTManager, token_required, admin_required
-import jwt
+from jwt_auth_middleware import JWTManager, token_required, admin_required, create_access_token
 import datetime
 
 @pytest.fixture
@@ -49,7 +48,7 @@ def test_protected_route_with_valid_token(client, app):
     """測試有效 token 訪問受保護路由"""
     # 創建測試 token
     test_user = {"sub": "test@example.com", "email": "test@example.com", "roles": ["user"]}
-    token = jwt.encode(test_user, app.config['JWT_SECRET_KEY'], algorithm='HS256')
+    token = create_access_token(test_user)
     
     response = client.get('/protected', headers={'Authorization': f'Bearer {token}'})
     assert response.status_code == 200
@@ -60,7 +59,7 @@ def test_admin_route_with_user_token(client, app):
     """測試普通用戶訪問管理員路由"""
     # 創建普通用戶 token
     test_user = {"sub": "test@example.com", "email": "test@example.com", "roles": ["user"]}
-    token = jwt.encode(test_user, app.config['JWT_SECRET_KEY'], algorithm='HS256')
+    token = create_access_token(test_user)
     
     response = client.get('/admin', headers={'Authorization': f'Bearer {token}'})
     assert response.status_code == 403
@@ -70,7 +69,7 @@ def test_admin_route_with_admin_token(client, app):
     """測試管理員訪問管理員路由"""
     # 創建管理員 token
     test_user = {"sub": "admin@example.com", "email": "admin@example.com", "roles": ["admin"]}
-    token = jwt.encode(test_user, app.config['JWT_SECRET_KEY'], algorithm='HS256')
+    token = create_access_token(test_user)
     
     response = client.get('/admin', headers={'Authorization': f'Bearer {token}'})
     assert response.status_code == 200
