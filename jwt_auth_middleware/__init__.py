@@ -9,7 +9,7 @@ from .middleware import JWTManager, token_required, admin_required, role_require
 from .jwt_utils import create_access_token, verify_token, revoke_token
 from .config import JWTConfig
 
-__version__ = "1.0.2"
+__version__ = "1.0.3"
 __author__ = "Your Name"
 __email__ = "your.email@example.com"
 
