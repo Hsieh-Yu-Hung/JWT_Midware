@@ -122,10 +122,6 @@ git+https://github.com/Hsieh-Yu-Hung/JWT_Midware.git
 ### 2. 更新導入
 
 ```python
-# 舊的導入方式
-# from middleware.jwt_middleware import token_required
-
-# 新的導入方式
 from jwt_auth_middleware import JWTManager, token_required, admin_required
 ```
 
@@ -149,10 +145,7 @@ def logout():
 ## 🧪 測試
 
 ```bash
-# 運行測試
-make test
-
-# 或直接使用 pytest
+# 使用 pytest
 python -m pytest tests/ -v
 ```
 
@@ -203,9 +196,6 @@ bash make.sh release
 ```bash
 # 使用 Python 腳本
 python scripts/bump_version.py patch
-
-# 或使用 bump2version
-bump2version patch
 ```
 
 ### 創建 Release
@@ -239,18 +229,6 @@ git push origin v1.0.1
 | `ImportError: No module named 'jwt_auth_middleware'` | 確保套件已正確安裝：`pip list \| grep jwt` |
 | `ConfigurationError: JWT_SECRET_KEY not set`         | 在 app.config 中設定 JWT_SECRET_KEY         |
 | `Token validation failed`                            | 檢查 token 格式和 secret key                |
-
-### 調試模式
-
-```python
-app.config['JWT_DEBUG'] = True  # 啟用詳細日誌
-```
-
-## 📚 更多資源
-
-- [範例代碼](examples/)
-- [GitHub 倉庫](https://github.com/Hsieh-Yu-Hung/JWT_Midware)
-- [問題回報](https://github.com/Hsieh-Yu-Hung/JWT_Midware/issues)
 
 ## 📝 注意事項
 
