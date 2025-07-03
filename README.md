@@ -179,25 +179,59 @@ python scripts/bump_version.py patch
 
 ### 創建 Release
 
+本專案使用 Pull Request 合併到 main 分支時自動觸發 release 流程。
+
+#### 標準工作流程
+
+```bash
+# 1. 建立功能分支
+git checkout -b feature/new-feature
+
+# 2. 進行開發和測試
+# ... 開發工作 ...
+
+# 3. 更新版本號（如果需要）
+make bump-patch  # 或 bump-minor, bump-major
+
+# 4. 提交更改
+git add .
+git commit -m "Add new feature and bump version"
+
+# 5. 推送分支並建立 Pull Request
+git push origin feature/new-feature
+# 在 GitHub 上建立 PR 到 main 分支
+
+# 6. 合併 Pull Request
+# 當 PR 被合併到 main 分支時，GitHub Actions 會自動：
+# - 構建套件
+# - 創建 GitHub Release
+# - 上傳構建檔案
+```
+
+#### 手動觸發（如果需要）
+
+如果您需要手動觸發 release，可以：
+
 ```bash
 # 1. 更新版本號
 make bump-patch
 
-# 2. 提交更改
+# 2. 提交並推送
 git add .
 git commit -m "Bump version"
 git push origin main
 
-# 3. 創建標籤
+# 3. 建立標籤
 git tag v1.0.1
 git push origin v1.0.1
 ```
 
-推送標籤後，GitHub Actions 會自動：
+#### 自動化觸發條件
 
-- 構建套件
-- 創建 GitHub Release
-- 上傳構建檔案
+- ✅ **Pull Request 合併到 main 分支**：自動觸發 release
+- ❌ **直接推送到 main 分支**：不會觸發 release
+- ❌ **推送到其他分支**：不會觸發 release
+- ❌ **關閉但未合併的 PR**：不會觸發 release
 
 ## 🔍 故障排除
 
