@@ -4,6 +4,7 @@ JWT Authentication Middleware
 Provides decorators for JWT token validation and role-based access control.
 """
 
+import logging
 from functools import wraps
 from flask import request, jsonify
 from .jwt_utils import verify_token
@@ -47,6 +48,53 @@ class JWTManager:
             access_token_expires=app.config['JWT_ACCESS_TOKEN_EXPIRES'],
             refresh_token_expires=app.config['JWT_REFRESH_TOKEN_EXPIRES']
         )
+        
+        # 記錄 JWT 配置到日誌（遮罩敏感資訊）
+        self._log_jwt_config()
+    
+    def _log_jwt_config(self):
+        """
+        記錄 JWT 配置到日誌，對敏感資訊進行遮罩處理
+        """
+        logger = logging.getLogger(__name__)
+        
+        # 遮罩 secret_key（只顯示前4個字元和後4個字元）
+        secret_key = self.jwt_config.secret_key
+        if secret_key and len(secret_key) > 8:
+            masked_secret = secret_key[:4] + "*" * (len(secret_key) - 8) + secret_key[-4:]
+        else:
+            masked_secret = "*" * len(secret_key) if secret_key else "None"
+        
+        # 遮罩 MongoDB URL（隱藏認證資訊）
+        mongodb_url = self.jwt_config.mongodb_api_url
+        if mongodb_url:
+            try:
+                # 簡單的 URL 遮罩處理
+                if "@" in mongodb_url:
+                    # 有認證資訊的 URL
+                    parts = mongodb_url.split("@")
+                    masked_url = parts[0].split("://")[0] + "://***:***@" + parts[1]
+                else:
+                    # 沒有認證資訊的 URL
+                    masked_url = mongodb_url
+            except:
+                masked_url = "***"
+        else:
+            masked_url = "None"
+        
+        config_info = {
+            "algorithm": self.jwt_config.algorithm,
+            "access_token_expires": f"{self.jwt_config.access_token_expires} seconds",
+            "refresh_token_expires": f"{self.jwt_config.refresh_token_expires} seconds",
+            "secret_key": masked_secret,
+            "mongodb_api_url": masked_url,
+            "blacklist_collection": self.jwt_config.blacklist_collection,
+            "enable_blacklist": self.jwt_config.enable_blacklist
+        }
+        
+        logger.info("JWT Configuration initialized:")
+        for key, value in config_info.items():
+            logger.info(f"  {key}: {value}")
 
 def token_required(f):
     """
