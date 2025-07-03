@@ -245,7 +245,7 @@ git push origin v1.0.1
 
 ## 📝 注意事項
 
-- Release 機制測試
+- Release 機制, 合併分支之前務必要更新版本號
 - 此套件不再自動發布到 PyPI
 - 所有版本都通過 GitHub Releases 管理
 - 建議使用 GitHub 安裝方式以獲得最新功能和修復
