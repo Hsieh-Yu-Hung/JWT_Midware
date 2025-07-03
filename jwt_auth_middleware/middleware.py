@@ -95,6 +95,7 @@ class JWTManager:
         logger.info("JWT Configuration initialized:")
         for key, value in config_info.items():
             logger.info(f"  {key}: {value}")
+            print(f"  {key}: {value}")
 
 def token_required(f):
     """
