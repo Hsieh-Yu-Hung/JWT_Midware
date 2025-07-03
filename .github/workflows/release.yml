@@ -26,6 +26,13 @@ jobs:
         python -m pip install --upgrade pip
         pip install build
     
+    - name: Extract version from setup.py
+      id: version
+      run: |
+        VERSION=$(python -c "import re; content=open('setup.py').read(); print(re.search(r'version=\"([^\"]+)\"', content).group(1))")
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Extracted version: $VERSION"
+    
     - name: Build package
       run: python -m build
     
@@ -39,7 +46,7 @@ jobs:
         generate_release_notes: true
         draft: false
         prerelease: false
-        tag_name: ${{ github.ref_name }}
-        name: Release ${{ github.ref_name }}
+        tag_name: v${{ steps.version.outputs.version }}
+        name: Release v${{ steps.version.outputs.version }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
