@@ -31,7 +31,17 @@ pip install git+https://github.com/Hsieh-Yu-Hung/JWT_Midware.git@v1.0.0
 git clone https://github.com/Hsieh-Yu-Hung/JWT_Midware.git
 cd JWT_Midware
 
+# 建立虛擬環境
+python -m venv venv
+
+# 進入虛擬環境 (Windows)
+venv\Scripts\activate
+
+# 進入虛擬環境 (Linux/Mac)
+source venv/bin/activate
+
 # 安裝開發依賴
+pip install -r requirements.txt
 pip install -e .
 ```
 
@@ -111,38 +121,7 @@ config = JWTConfig(
 )
 ```
 
-## 🔄 從現有專案遷移
-
-### 1. 更新 requirements.txt
-
-```txt
-git+https://github.com/Hsieh-Yu-Hung/JWT_Midware.git
-```
-
-### 2. 更新導入
-
-```python
-from jwt_auth_middleware import JWTManager, token_required, admin_required
-```
-
-## 🗄️ MongoDB 整合
-
-```python
-# 配置資料庫
-app.config['MONGODB_URI'] = 'mongodb://localhost:27017/your_db'
-
-# 使用黑名單功能
-from jwt_auth_middleware import BlacklistManager
-blacklist_manager = BlacklistManager(app)
-
-@app.route('/logout', methods=['POST'])
-def logout():
-    token = request.headers.get('Authorization', '').replace('Bearer ', '')
-    blacklist_manager.add_to_blacklist(token)
-    return {"message": "Logged out successfully"}
-```
-
-## 🧪 測試
+## 🧪 運行測試
 
 ```bash
 # 使用 pytest
