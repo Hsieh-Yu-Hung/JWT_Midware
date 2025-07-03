@@ -19,7 +19,7 @@ from .jwt_utils import (
 from .config import JWTConfig
 from .blacklist import BlacklistManager, init_blacklist_manager, get_blacklist_manager
 
-__version__ = "1.1.3"
+__version__ = "1.1.4"
 __author__ = "Your Name"
 __email__ = "your.email@example.com"
 
