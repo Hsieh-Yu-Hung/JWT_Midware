@@ -20,9 +20,10 @@ from .jwt_utils import (
     remove_from_blacklist,
     cleanup_expired_blacklist_tokens,
     get_blacklist_statistics,
-    initialize_blacklist_system
+    initialize_blacklist_system,
+    set_jwt_config
 )
-from .config import JWTConfig
+from .config import JWTConfig, create_jwt_config
 from .blacklist import BlacklistManager
 
 __version__ = "1.3.0"
@@ -43,10 +44,12 @@ __all__ = [
     "revoke_token",
     "revoke_token_pair",
     "JWTConfig",
+    "create_jwt_config",
     "BlacklistManager",
     "is_token_blacklisted",
     "remove_from_blacklist",
     "cleanup_expired_blacklist_tokens",
     "get_blacklist_statistics",
-    "initialize_blacklist_system"
+    "initialize_blacklist_system",
+    "set_jwt_config"
 ] 

@@ -10,15 +10,42 @@ from typing import Dict, Any, Optional
 from .config import JWTConfig
 from .blacklist import BlacklistManager
 
-# 全域配置實例 - 自動從環境變數讀取配置
-jwt_config = JWTConfig()
+# 全域配置實例 - 延遲初始化
+_jwt_config = None
+_blacklist_manager = None
 
-# 全域黑名單管理器實例
-blacklist_manager = BlacklistManager(
-    mongodb_api_url=jwt_config.mongodb_api_url,
-    collection_name=jwt_config.blacklist_collection,
-    jwt_config=jwt_config
-) if jwt_config.enable_blacklist and jwt_config.mongodb_api_url else None
+def _get_jwt_config() -> JWTConfig:
+    """獲取 JWT 配置實例"""
+    global _jwt_config
+    if _jwt_config is None:
+        raise RuntimeError(
+            "JWT 配置未初始化。請先使用 set_jwt_config() 設定配置，"
+            "或使用 create_jwt_config() 創建配置實例。"
+            "範例：\n"
+            "from jwt_auth_middleware import create_jwt_config, set_jwt_config\n"
+            "config = create_jwt_config(secret_key='your_secret_key')\n"
+            "set_jwt_config(config)"
+        )
+    return _jwt_config
+
+def _get_blacklist_manager() -> Optional[BlacklistManager]:
+    """獲取黑名單管理器實例（延遲初始化）"""
+    global _blacklist_manager
+    if _blacklist_manager is None:
+        config = _get_jwt_config()
+        if config.enable_blacklist and config.mongodb_api_url:
+            _blacklist_manager = BlacklistManager(
+                mongodb_api_url=config.mongodb_api_url,
+                collection_name=config.blacklist_collection,
+                jwt_config=config
+            )
+    return _blacklist_manager
+
+def set_jwt_config(config: JWTConfig):
+    """設置 JWT 配置（主要用於測試）"""
+    global _jwt_config, _blacklist_manager
+    _jwt_config = config
+    _blacklist_manager = None  # 重置黑名單管理器
 
 def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
     """
@@ -32,6 +59,7 @@ def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta]
         JWT token 字串
     """
     to_encode = data.copy()
+    jwt_config = _get_jwt_config()
     
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
@@ -58,6 +86,7 @@ def create_refresh_token(data: Dict[str, Any]) -> str:
         JWT refresh token 字串
     """
     to_encode = data.copy()
+    jwt_config = _get_jwt_config()
     expire = datetime.now(timezone.utc) + timedelta(minutes=jwt_config.refresh_token_expires)
     
     to_encode.update({
@@ -102,9 +131,11 @@ def verify_token(token: str) -> Dict[str, Any]:
         jwt.InvalidTokenError: Token 無效
     """
     try:
+        jwt_config = _get_jwt_config()
         payload = jwt.decode(token, jwt_config.secret_key, algorithms=[jwt_config.algorithm])
         
         # 檢查黑名單
+        blacklist_manager = _get_blacklist_manager()
         if jwt_config.enable_blacklist and blacklist_manager:
             if blacklist_manager.is_blacklisted(token):
                 raise Exception("Token has been revoked")
@@ -199,6 +230,8 @@ def revoke_token(token: str, reason: str = "revoked") -> bool:
         verify_token(token)
         
         # 如果啟用黑名單功能，將 token 加入黑名單
+        jwt_config = _get_jwt_config()
+        blacklist_manager = _get_blacklist_manager()
         if jwt_config.enable_blacklist and blacklist_manager:
             print(f"jwt_config.enable_blacklist: {jwt_config.enable_blacklist}")
             print(f"blacklist_mgr: {blacklist_manager}")
@@ -250,6 +283,7 @@ def get_token_expiration(token: str) -> Optional[datetime]:
         過期時間，如果 token 無效則返回 None
     """
     try:
+        jwt_config = _get_jwt_config()
         payload = jwt.decode(token, jwt_config.secret_key, algorithms=[jwt_config.algorithm])
         exp_timestamp = payload.get("exp")
         if exp_timestamp:
@@ -284,6 +318,8 @@ def is_token_blacklisted(token: str) -> bool:
     Returns:
         是否在黑名單中
     """
+    jwt_config = _get_jwt_config()
+    blacklist_manager = _get_blacklist_manager()
     if not jwt_config.enable_blacklist or not blacklist_manager:
         return False
     
@@ -299,6 +335,8 @@ def remove_from_blacklist(token: str) -> bool:
     Returns:
         是否成功移除
     """
+    jwt_config = _get_jwt_config()
+    blacklist_manager = _get_blacklist_manager()
     if not jwt_config.enable_blacklist or not blacklist_manager:
         return False
     
@@ -311,6 +349,8 @@ def cleanup_expired_blacklist_tokens() -> int:
     Returns:
         清理的 token 數量
     """
+    jwt_config = _get_jwt_config()
+    blacklist_manager = _get_blacklist_manager()
     if not jwt_config.enable_blacklist or not blacklist_manager:
         return 0
     
@@ -323,6 +363,8 @@ def get_blacklist_statistics() -> Dict[str, Any]:
     Returns:
         統計資訊字典
     """
+    jwt_config = _get_jwt_config()
+    blacklist_manager = _get_blacklist_manager()
     if not jwt_config.enable_blacklist or not blacklist_manager:
         return {"total_tokens": 0, "expired_tokens": 0, "active_tokens": 0}
     
@@ -340,9 +382,10 @@ def initialize_blacklist_system(mongodb_api_url: str = None,
     Returns:
         是否成功初始化
     """
-    global blacklist_manager
+    global _blacklist_manager
     
     try:
+        jwt_config = _get_jwt_config()
         api_url = mongodb_api_url or jwt_config.mongodb_api_url
         collection = collection_name or jwt_config.blacklist_collection
         
@@ -351,7 +394,7 @@ def initialize_blacklist_system(mongodb_api_url: str = None,
             return False
         
         # 重新建立黑名單管理器
-        blacklist_manager = BlacklistManager(api_url, collection, jwt_config)
+        _blacklist_manager = BlacklistManager(api_url, collection, jwt_config)
         return True
     except Exception as e:
         print(f"初始化黑名單系統時發生錯誤: {str(e)}")

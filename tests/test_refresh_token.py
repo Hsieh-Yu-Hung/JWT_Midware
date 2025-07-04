@@ -21,21 +21,25 @@ class TestRefreshToken:
         """設定測試環境"""
         import os
         os.environ['JWT_SECRET_KEY'] = 'test-secret-key'
+        os.environ['JWT_ALGORITHM'] = 'HS256'
         os.environ['MONGODB_API_URL'] = 'http://test-api.com'
         os.environ['JWT_BLACKLIST_COLLECTION'] = 'test_blacklist'
         os.environ['JWT_ENABLE_BLACKLIST'] = 'true'
         os.environ['JWT_ACCESS_TOKEN_EXPIRES'] = '30'
         os.environ['JWT_REFRESH_TOKEN_EXPIRES'] = '1440'
-        
-        # 重新初始化全域配置
-        import jwt_auth_middleware.jwt_utils
-        import jwt_auth_middleware.blacklist
-        jwt_auth_middleware.jwt_utils.jwt_config = jwt_auth_middleware.config.JWTConfig()
-        jwt_auth_middleware.jwt_utils.blacklist_manager = jwt_auth_middleware.blacklist.BlacklistManager(
-            mongodb_api_url=jwt_auth_middleware.jwt_utils.jwt_config.mongodb_api_url,
-            collection_name=jwt_auth_middleware.jwt_utils.jwt_config.blacklist_collection,
-            jwt_config=jwt_auth_middleware.jwt_utils.jwt_config
-        ) if jwt_auth_middleware.jwt_utils.jwt_config.enable_blacklist and jwt_auth_middleware.jwt_utils.jwt_config.mongodb_api_url else None
+
+        # 使用新的配置系統
+        from jwt_auth_middleware import JWTConfig, set_jwt_config
+        test_config = JWTConfig(
+            secret_key="test-secret-key",
+            algorithm="HS256",
+            access_token_expires=30,
+            refresh_token_expires=1440,
+            mongodb_api_url="http://test-api.com",
+            blacklist_collection="test_blacklist",
+            enable_blacklist=True
+        )
+        set_jwt_config(test_config)
     
     def test_create_token_pair(self):
         """測試建立 Token 對"""
@@ -100,11 +104,13 @@ class TestRefreshToken:
         new_access_token = refresh_access_token(tokens["access_token"])
         assert new_access_token is None
     
-    @patch('jwt_auth_middleware.jwt_utils.blacklist_manager')
-    def test_revoke_token_pair(self, mock_blacklist_manager):
+    @patch('jwt_auth_middleware.jwt_utils._get_blacklist_manager')
+    def test_revoke_token_pair(self, mock_get_blacklist_manager):
         """測試撤銷 Token 對"""
+        mock_blacklist_manager = MagicMock()
         mock_blacklist_manager.add_to_blacklist.return_value = True
         mock_blacklist_manager.is_blacklisted.return_value = False
+        mock_get_blacklist_manager.return_value = mock_blacklist_manager
         
         data = {"user_id": 123}
         tokens = create_token_pair(data)
@@ -117,10 +123,12 @@ class TestRefreshToken:
         assert success is True
         assert mock_blacklist_manager.add_to_blacklist.call_count == 2
     
-    @patch('jwt_auth_middleware.jwt_utils.blacklist_manager')
-    def test_revoke_token_pair_with_blacklist_disabled(self, mock_blacklist_manager):
+    @patch('jwt_auth_middleware.jwt_utils._get_blacklist_manager')
+    def test_revoke_token_pair_with_blacklist_disabled(self, mock_get_blacklist_manager):
         """測試黑名單停用時的撤銷行為"""
+        mock_blacklist_manager = MagicMock()
         mock_blacklist_manager.add_to_blacklist.return_value = False
+        mock_get_blacklist_manager.return_value = mock_blacklist_manager
         
         data = {"user_id": 123}
         tokens = create_token_pair(data)
@@ -149,14 +157,15 @@ class TestRefreshToken:
     
     def test_token_expiration_times(self):
         """測試 Token 過期時間設定"""
-        config = JWTConfig()
+        config = JWTConfig(secret_key="test-secret-key")
         
         # 驗證預設過期時間
-        assert config.access_token_expires == 30
-        assert config.refresh_token_expires == 1440
+        assert config.access_token_expires == 120  # 從 config.yaml 載入
+        assert config.refresh_token_expires == 1440  # 從 config.yaml 載入
         
         # 驗證自定義過期時間
         custom_config = JWTConfig(
+            secret_key="test-secret-key",
             access_token_expires=60,
             refresh_token_expires=2880
         )
@@ -174,14 +183,14 @@ class TestRefreshToken:
         )
         assert valid_config.validate() is True
         
-        # 無效配置 - 缺少 secret_key
-        invalid_config1 = JWTConfig(
-            secret_key="",
-            mongodb_api_url="http://test.com",
-            access_token_expires=30,
-            refresh_token_expires=1440
-        )
-        assert invalid_config1.validate() is False  # 空字串應該無效
+        # 無效配置 - 空 secret_key 會拋出異常
+        with pytest.raises(ValueError, match="JWT_SECRET_KEY 是必要參數"):
+            invalid_config1 = JWTConfig(
+                secret_key="",
+                mongodb_api_url="http://test.com",
+                access_token_expires=30,
+                refresh_token_expires=1440
+            )
         
         # 無效配置 - access_token_expires <= 0
         invalid_config2 = JWTConfig(
@@ -253,11 +262,12 @@ class TestRefreshToken:
         os.environ['JWT_ACCESS_TOKEN_EXPIRES'] = '60'
         os.environ['JWT_REFRESH_TOKEN_EXPIRES'] = '2880'
         
-        # 重新建立配置
-        config = JWTConfig()
+        # 重新建立配置（環境變數在新設計中不再自動載入）
+        config = JWTConfig(secret_key="test-secret-key")
         
-        assert config.access_token_expires == 60
-        assert config.refresh_token_expires == 2880
+        # 由於新設計不再自動載入環境變數，這些值應該來自 config.yaml 或預設值
+        assert config.access_token_expires == 120  # 來自 config.yaml
+        assert config.refresh_token_expires == 1440  # 來自 config.yaml
         
         # 清理環境變數
         os.environ.pop('JWT_ACCESS_TOKEN_EXPIRES', None)
@@ -332,11 +342,7 @@ class TestRefreshToken:
         """測試驗證缺少 type 欄位的 Token"""
         from jwt_auth_middleware import create_access_token
         import jwt
-        import jwt_auth_middleware.jwt_utils
         from datetime import datetime, timedelta, timezone
-
-        # 調試：檢查全域配置的 secret key
-        print(f"全域配置的 secret key: {jwt_auth_middleware.jwt_utils.jwt_config.secret_key}")
 
         # 建立沒有 type 欄位的 token，使用與配置相同的 secret key
         data = {"user_id": 123}

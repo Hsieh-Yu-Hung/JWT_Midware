@@ -56,11 +56,16 @@ pip install -e .
 
 ```python
 from flask import Flask
-from jwt_auth_middleware import JWTManager
+from jwt_auth_middleware import JWTConfig, set_jwt_config
 
 app = Flask(__name__)
-app.config['JWT_SECRET_KEY'] = 'your-secret-key'
-jwt_manager = JWTManager(app)
+
+# 創建 JWT 配置
+secret_key = "your-super-secret-jwt-key-here"  # 實際應用中應從環境變數獲取
+config = JWTConfig(secret_key=secret_key)
+
+# 設定全域配置
+set_jwt_config(config)
 ```
 
 ### 2. 使用裝飾器
@@ -122,66 +127,131 @@ def logout(current_user):
 
 ## ⚙️ 配置
 
-### 環境變數
+### 新的配置系統
 
-⚠️ **重要注意事項**：本套件會自動載入專案根目錄的 `.env` 檔案。請確保在專案根目錄建立 `.env` 檔案並設定以下必要的環境變數：
+本套件現在支援更靈活的配置管理，將敏感和非敏感配置分離：
 
-```bash
-# 必要的環境變數
-JWT_SECRET_KEY=your-super-secret-key-here
-JWT_ALGORITHM=HS256
-JWT_ACCESS_TOKEN_EXPIRES=30
-JWT_REFRESH_TOKEN_EXPIRES=1440
-MONGODB_API_URL=https://your-mongodb-api-url.com
-JWT_BLACKLIST_COLLECTION=jwt_blacklist
-JWT_ENABLE_BLACKLIST=true
-```
+- **敏感配置**：由應用端提供（如 JWT 密鑰）
+- **非敏感配置**：存放在 `config.yaml` 檔案中（如演算法、過期時間等）
 
-#### 環境變數說明
+**重要**：應用端必須提供 JWT_SECRET_KEY，套件本身不預設任何密鑰。
 
-| 變數名稱 | 說明 | 預設值 | 是否必要 |
-|---------|------|--------|----------|
-| `JWT_SECRET_KEY` | JWT 簽名密鑰 | 無 | ✅ 必要 |
-| `JWT_ALGORITHM` | JWT 演算法 | HS256 | ✅ 必要 |
-| `JWT_ACCESS_TOKEN_EXPIRES` | Access token 過期時間（分鐘） | 30 | ✅ 必要 |
-| `JWT_REFRESH_TOKEN_EXPIRES` | Refresh token 過期時間（分鐘） | 1440 | ✅ 必要 |
-| `MONGODB_API_URL` | MongoDB API URL（用於黑名單功能） | 無 | ✅ 必要 |
-| `JWT_BLACKLIST_COLLECTION` | 黑名單集合名稱 | jwt_blacklist | ✅ 必要 |
-| `JWT_ENABLE_BLACKLIST` | 是否啟用黑名單功能 | true | ✅ 必要 |
+### 配置檔案
 
-#### 建立 .env 檔案
+#### 1. 應用端密鑰管理
 
-在專案根目錄建立 `.env` 檔案：
-
-```bash
-# 專案根目錄
-touch .env  # Linux/macOS
-# 或在 Windows 中手動建立 .env 檔案
-```
-
-然後在 `.env` 檔案中加入上述環境變數。
-
-#### 故障排除
-
-如果遇到 `ValueError: 環境變數 'XXX' 未設定。請檢查 .env 檔案是否正確配置。` 錯誤：
-
-1. 確認 `.env` 檔案位於專案根目錄
-2. 確認所有必要的環境變數都已設定
-3. 確認 `.env` 檔案格式正確（無空格、正確的變數名稱）
-4. 重新啟動應用程式或測試
-
-### 自定義配置
+⚠️ **重要**：應用端必須提供 JWT_SECRET_KEY，建議從環境變數獲取！
 
 ```python
-from jwt_auth_middleware import JWTConfig
+# 從環境變數獲取密鑰（推薦做法）
+import os
+secret_key = os.getenv('JWT_SECRET_KEY')
+if not secret_key:
+    raise ValueError("請設定 JWT_SECRET_KEY 環境變數")
 
+# 或者從其他安全來源獲取
+secret_key = "your_super_secret_jwt_key_here"
+```
+
+#### 2. YAML 配置檔案 (config.yaml)
+
+✅ **安全**：可以安全地提交到版本控制
+
+```yaml
+# JWT 認證中間件配置檔案
+jwt:
+  # JWT 演算法
+  algorithm: HS256
+  
+  # Token 過期時間（分鐘）
+  access_token_expires: 120
+  refresh_token_expires: 1440
+
+mongodb:
+  # MongoDB API URL（用於黑名單功能）
+  api_url: https://db-operation-xbbbehjawk.cn-shanghai-vpc.fcapp.run
+  
+  # 黑名單相關配置
+  blacklist:
+    collection: jwt_blacklist
+    enabled: true
+
+# 其他配置選項
+app:
+  # 是否載入 .env 檔案（預設為 true）
+  load_dotenv: true
+  
+  # 除錯模式
+  debug: false
+```
+
+### 配置載入優先順序
+
+1. **直接傳入的參數**（最高優先級）
+2. **YAML 配置檔案**（用於非敏感配置）
+3. **預設值**（最低優先級）
+
+**注意**：JWT_SECRET_KEY 必須由應用端提供，不會從環境變數自動載入。
+
+### 使用方式
+
+#### 基本使用
+
+```python
+from jwt_auth_middleware.config import JWTConfig, create_jwt_config
+from jwt_auth_middleware import set_jwt_config
+
+# 應用端提供密鑰
+secret_key = "your_super_secret_jwt_key_here"
+
+# 創建配置
+config = JWTConfig(secret_key=secret_key)
+
+# 設定全域配置（讓其他函數使用）
+set_jwt_config(config)
+```
+
+#### 自訂配置檔案
+
+```python
+# 指定自訂配置檔案
+config = JWTConfig(secret_key=secret_key, config_file="custom_config.yaml")
+```
+
+#### 程式化配置
+
+```python
+# 程式化設定配置（優先級最高）
 config = JWTConfig(
-    secret_key="your-custom-secret",
-    algorithm="HS256",
+    secret_key=secret_key,
+    algorithm="HS512",
     access_token_expires=60,
-    refresh_token_expires=1440
+    refresh_token_expires=720,
+    mongodb_api_url="https://custom-mongodb-api.example.com",
+    blacklist_collection="custom_blacklist",
+    enable_blacklist=False
 )
 ```
+
+### 配置驗證
+
+```python
+# 驗證配置是否有效
+if config.validate():
+    print("配置有效")
+else:
+    print("配置無效")
+```
+
+### 故障排除
+
+如果遇到配置錯誤：
+
+1. 確認應用端提供了 `JWT_SECRET_KEY`
+2. 確認 `config.yaml` 檔案格式正確
+3. 檢查配置檔案的優先順序
+4. 使用 `config.validate()` 驗證配置
+5. 確認已使用 `set_jwt_config()` 設定全域配置
 
 ## 🧪 運行測試
 

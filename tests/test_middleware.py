@@ -1,14 +1,24 @@
 import pytest
 from flask import Flask, jsonify
-from jwt_auth_middleware import token_required, admin_required, create_access_token
+from jwt_auth_middleware import token_required, admin_required, create_access_token, JWTConfig, set_jwt_config
 import datetime
 
 @pytest.fixture
 def app():
     app = Flask(__name__)
     app.config['SECRET_KEY'] = 'test-secret-key'
-    app.config['JWT_SECRET_KEY'] = 'test-jwt-secret'
-    app.config['JWT_ACCESS_TOKEN_EXPIRES'] = datetime.timedelta(hours=1)
+    
+    # 設置測試 JWT 配置
+    test_config = JWTConfig(
+        secret_key="test-jwt-secret",
+        algorithm="HS256",
+        access_token_expires=60,
+        refresh_token_expires=1440,
+        mongodb_api_url="http://localhost:3001",
+        blacklist_collection="jwt_blacklist",
+        enable_blacklist=False
+    )
+    set_jwt_config(test_config)
     
     @app.route('/protected')
     @token_required
