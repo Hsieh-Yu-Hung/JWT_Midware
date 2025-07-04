@@ -123,6 +123,17 @@ def manage_users_route(current_user):
 
 ## Token 管理函數
 
+### Token 結構
+
+JWT token 包含以下標準欄位：
+
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| `exp` | datetime | Token 過期時間 |
+| `iat` | datetime | Token 發行時間 |
+| `type` | str | Token 類型（"access" 或 "refresh"） |
+| `jti` | str | JWT ID，確保每個 token 的唯一性 |
+
 ### create_access_token(payload)
 
 建立 JWT access token。

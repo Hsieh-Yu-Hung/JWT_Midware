@@ -5,6 +5,7 @@ Provides JWT token creation, verification, and management functions.
 """
 
 import jwt
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, Optional
 from .config import JWTConfig
@@ -69,7 +70,8 @@ def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta]
     to_encode.update({
         "exp": expire,
         "type": "access",  # 標記為 Access Token
-        "iat": datetime.now(timezone.utc)  # 發行時間
+        "iat": datetime.now(timezone.utc),  # 發行時間
+        "jti": str(uuid.uuid4())  # JWT ID，確保每個 token 唯一
     })
     encoded_jwt = jwt.encode(to_encode, jwt_config.secret_key, algorithm=jwt_config.algorithm)
     
@@ -92,7 +94,8 @@ def create_refresh_token(data: Dict[str, Any]) -> str:
     to_encode.update({
         "exp": expire,
         "type": "refresh",  # 標記為 Refresh Token
-        "iat": datetime.now(timezone.utc)  # 發行時間
+        "iat": datetime.now(timezone.utc),  # 發行時間
+        "jti": str(uuid.uuid4())  # JWT ID，確保每個 token 唯一
     })
     encoded_jwt = jwt.encode(to_encode, jwt_config.secret_key, algorithm=jwt_config.algorithm)
     
@@ -202,10 +205,11 @@ def refresh_access_token(refresh_token: str) -> Optional[str]:
         # 驗證 Refresh Token
         payload = verify_refresh_token(refresh_token)
         
-        # 移除過期時間、類型標記和發行時間
+        # 移除過期時間、類型標記、發行時間和 JWT ID
         payload.pop("exp", None)
         payload.pop("type", None)
         payload.pop("iat", None)
+        payload.pop("jti", None)  # 移除 JWT ID，讓新的 token 有新的 ID
         
         # 建立新的 Access Token
         return create_access_token(payload)
