@@ -11,6 +11,7 @@
 - ✅ 完整的 JWT token 管理
 - ✅ 支援 token 重新整理
 - ✅ 支援 token 撤銷
+- ✅ MongoDB 黑名單系統
 
 ## 📋 系統需求
 
@@ -26,7 +27,7 @@
 pip install git+https://github.com/Hsieh-Yu-Hung/JWT_Midware.git
 
 # 安裝特定版本
-pip install git+https://github.com/Hsieh-Yu-Hung/JWT_Midware.git@v1.0.0
+pip install git+https://github.com/Hsieh-Yu-Hung/JWT_Midware.git@v1.3.2
 ```
 
 ### 本地開發
@@ -62,7 +63,7 @@ app = Flask(__name__)
 
 # 創建 JWT 配置
 secret_key = "your-super-secret-jwt-key-here"  # 實際應用中應從環境變數獲取
-config = JWTConfig(secret_key=secret_key)
+config = JWTConfig(secret_key=secret_key, config_file="config_example.yaml")
 
 # 設定全域配置
 set_jwt_config(config)
@@ -97,12 +98,17 @@ def protected_route(current_user):
 def admin_route(current_user):
     return jsonify({"message": "Admin access granted"})
 
-# Refresh Token 端點
-@app.route('/refresh', methods=['POST'])
-@refresh_token_required
-def refresh_token(current_user):
-    new_token = create_access_token(current_user)
-    return jsonify({"access_token": new_token})
+# 角色驗證端點
+@app.route('/manager')
+@role_required(['manager', 'admin'])
+def manager_route(current_user):
+    return jsonify({"message": "Manager access granted"})
+
+# 權限驗證端點
+@app.route('/delete-user')
+@permission_required('delete_user')
+def delete_user_route(current_user):
+    return jsonify({"message": "User deletion access granted"})
 
 # 登出端點（撤銷 token）
 @app.route('/logout', methods=['POST'])
@@ -114,6 +120,7 @@ def logout(current_user):
         token = auth_header.split(' ')[1]
         revoke_token(token, reason="user_logout")
     return jsonify({"message": "Logged out successfully"})
+```
 
 ## 🎯 裝飾器
 
@@ -123,7 +130,6 @@ def logout(current_user):
 | `@admin_required`             | 要求管理員權限 | `@admin_required`                     |
 | `@role_required(roles)`       | 要求特定角色   | `@role_required(["admin", "user"])`   |
 | `@permission_required(perms)` | 要求特定權限   | `@permission_required("delete_user")` |
-| `@refresh_token_required`     | 驗證 Refresh token | `@refresh_token_required`           |
 
 ## ⚙️ 配置
 
@@ -205,7 +211,7 @@ from jwt_auth_middleware import set_jwt_config
 secret_key = "your_super_secret_jwt_key_here"
 
 # 創建配置
-config = JWTConfig(secret_key=secret_key)
+config = JWTConfig(secret_key=secret_key, config_file="config_example.yaml")
 
 # 設定全域配置（讓其他函數使用）
 set_jwt_config(config)
@@ -224,6 +230,7 @@ config = JWTConfig(secret_key=secret_key, config_file="custom_config.yaml")
 # 程式化設定配置（優先級最高）
 config = JWTConfig(
     secret_key=secret_key,
+    config_file="config_example.yaml",
     algorithm="HS512",
     access_token_expires=60,
     refresh_token_expires=720,
@@ -394,12 +401,10 @@ git push origin v1.0.1
 
 ## 📚 更多文檔
 
-- [快速開始指南](docs/quickstart.md) - 5 分鐘快速上手
-- [API 參考](docs/api_reference.md) - 完整的 API 文檔
-- [黑名單系統使用指南](docs/blacklist_usage.md) - 詳細的黑名單功能說明
 - [完整範例](examples/complete_example.py) - 包含所有功能的完整應用程式範例
-- [Refresh Token 範例](examples/refresh_token_example.py) - Token 重新整理功能範例
 - [基本使用範例](examples/general_example.py) - 基本認證功能範例
+- [配置範例](examples/config_example.py) - 配置系統使用範例
+- [Flask 應用範例](examples/flask_app_example.py) - Flask 應用整合範例
 
 ## 🔗 相關連結
 

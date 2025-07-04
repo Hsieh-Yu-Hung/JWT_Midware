@@ -24,7 +24,8 @@ from jwt_auth_middleware import (
     role_required,
     is_token_blacklisted,
     cleanup_expired_blacklist_tokens,
-    get_blacklist_statistics
+    get_blacklist_statistics,
+    set_jwt_config
 )
 
 app = Flask(__name__)
@@ -211,13 +212,14 @@ def health_check():
     })
 
 if __name__ == '__main__':
-    # 設定環境變數（實際應用中應使用 .env 檔案）
-    os.environ['JWT_SECRET_KEY'] = 'your-super-secret-key'
-    os.environ['MONGODB_API_URL'] = 'https://your-mongodb-api-url.com'
-    os.environ['JWT_BLACKLIST_COLLECTION'] = 'jwt_blacklist'
-    os.environ['JWT_ENABLE_BLACKLIST'] = 'true'
-    os.environ['JWT_ACCESS_TOKEN_EXPIRES'] = '30'
-    os.environ['JWT_REFRESH_TOKEN_EXPIRES'] = '1440'
+    # 使用新的配置系統
+    config = JWTConfig(
+        secret_key="your-super-secret-key",
+        config_file="../jwt_auth_middleware/config_example.yaml"
+    )
+    
+    # 設定全域配置
+    set_jwt_config(config)
     
     print("🚀 啟動 JWT Authentication 範例伺服器...")
     print("📝 可用的測試帳號:")
