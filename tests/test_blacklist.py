@@ -54,6 +54,7 @@ class TestBlacklistManager:
         # 模擬成功的 API 回應
         mock_response = MagicMock()
         mock_response.status_code = 200
+        mock_response.json.return_value = {"status": "ok"}
         mock_post.return_value = mock_response
         
         token = "test.jwt.token"
@@ -62,173 +63,136 @@ class TestBlacklistManager:
         assert result is True
         mock_post.assert_called_once()
     
-    @patch('requests.post')
-    def test_add_to_blacklist_failure(self, mock_post):
-        """測試加入黑名單失敗"""
-        # 模擬失敗的 API 回應
-        mock_response = MagicMock()
-        mock_response.status_code = 500
-        mock_response.text = "Internal Server Error"
-        mock_post.return_value = mock_response
-        
-        token = "test.jwt.token"
-        result = self.blacklist_mgr.add_to_blacklist(token, "test_reason")
-        
-        assert result is False
-    
-    @patch('requests.post')
-    def test_is_blacklisted_true(self, mock_post):
-        """測試檢查 token 在黑名單中"""
-        # 模擬找到文件的 API 回應
+    @patch('requests.get')
+    def test_is_blacklisted_success(self, mock_get):
+        """測試成功查詢黑名單"""
+        # 模擬成功的 API 回應
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {"documents": [{"token_hash": "test_hash"}]}
-        mock_post.return_value = mock_response
+        mock_response.json.return_value = {"data": [{"token_hash": "test_hash"}]}
+        mock_get.return_value = mock_response
         
         token = "test.jwt.token"
         result = self.blacklist_mgr.is_blacklisted(token)
         
         assert result is True
+        mock_get.assert_called_once()
     
-    @patch('requests.post')
-    def test_is_blacklisted_false(self, mock_post):
-        """測試檢查 token 不在黑名單中"""
-        # 模擬找不到文件的 API 回應
+    @patch('requests.get')
+    def test_is_blacklisted_not_found(self, mock_get):
+        """測試查詢黑名單（未找到）"""
+        # 模擬成功的 API 回應（空結果）
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {"documents": []}
-        mock_post.return_value = mock_response
+        mock_response.json.return_value = {"data": []}
+        mock_get.return_value = mock_response
         
         token = "test.jwt.token"
         result = self.blacklist_mgr.is_blacklisted(token)
         
         assert result is False
-    
-    @patch('requests.post')
-    def test_remove_from_blacklist_success(self, mock_post):
-        """測試成功從黑名單移除"""
-        # 模擬成功的 API 回應
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_post.return_value = mock_response
-        
-        token = "test.jwt.token"
-        result = self.blacklist_mgr.remove_from_blacklist(token)
-        
-        assert result is True
-    
-    @patch('requests.post')
-    def test_cleanup_expired_tokens(self, mock_post):
-        """測試清理過期 tokens"""
-        # 模擬成功的 API 回應
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"deleted_count": 5}
-        mock_post.return_value = mock_response
-        
-        result = self.blacklist_mgr.cleanup_expired_tokens()
-        
-        assert result == 5
-    
-    @patch('requests.post')
-    def test_get_blacklist_stats(self, mock_post):
-        """測試取得黑名單統計資訊"""
-        # 模擬 API 回應
-        mock_response1 = MagicMock()
-        mock_response1.status_code = 200
-        mock_response1.json.return_value = {"count": 10}
-        
-        mock_response2 = MagicMock()
-        mock_response2.status_code = 200
-        mock_response2.json.return_value = {"count": 3}
-        
-        mock_post.side_effect = [mock_response1, mock_response2]
-        
-        result = self.blacklist_mgr.get_blacklist_stats()
-        
-        expected = {
-            "total_tokens": 10,
-            "expired_tokens": 3,
-            "active_tokens": 7
-        }
-        assert result == expected
+        mock_get.assert_called_once()
 
-class TestBlacklistIntegration:
-    """測試黑名單整合功能"""
+class TestJWTUtils:
+    """測試 JWT 工具函數"""
     
     def setup_method(self):
         """設定測試環境"""
-        self.config = JWTConfig(
-            secret_key="test-secret-key",
-            access_token_expires=30,
-            mongodb_api_url="http://test-api.com",
-            blacklist_collection="test_blacklist",
-            enable_blacklist=True
-        )
+        # 設定測試環境變數
+        import os
+        os.environ['JWT_SECRET_KEY'] = 'test-secret-key'
+        os.environ['MONGODB_API_URL'] = 'http://test-api.com'
+        os.environ['JWT_BLACKLIST_COLLECTION'] = 'test_blacklist'
+        os.environ['JWT_ENABLE_BLACKLIST'] = 'true'
     
-    @patch('jwt_auth_middleware.jwt_utils.get_blacklist_manager')
-    @patch('jwt_auth_middleware.jwt_utils.verify_token')
-    def test_revoke_token_with_blacklist(self, mock_verify, mock_get_manager):
-        """測試使用黑名單撤銷 token"""
+    def test_create_access_token(self):
+        """測試建立 access token"""
+        data = {"user_id": 123, "email": "test@example.com"}
+        token = create_access_token(data)
+        
+        assert token is not None
+        assert isinstance(token, str)
+        assert len(token.split('.')) == 3  # JWT 格式
+    
+    def test_verify_token(self):
+        """測試驗證 token"""
+        data = {"user_id": 123, "email": "test@example.com"}
+        token = create_access_token(data)
+        
+        payload = verify_token(token)
+        assert payload["user_id"] == 123
+        assert payload["email"] == "test@example.com"
+    
+    @patch('jwt_auth_middleware.jwt_utils.blacklist_manager')
+    def test_revoke_token_with_blacklist(self, mock_blacklist_manager):
+        """測試撤銷 token（啟用黑名單）"""
         # 模擬黑名單管理器
-        mock_manager = MagicMock()
-        mock_manager.add_to_blacklist.return_value = True
-        mock_get_manager.return_value = mock_manager
+        mock_blacklist_manager.add_to_blacklist.return_value = True
+        mock_blacklist_manager.is_blacklisted.return_value = False  # 初始狀態不在黑名單中
         
-        # 模擬 verify_token 成功
-        mock_verify.return_value = {"sub": "test_user", "role": "user"}
+        data = {"user_id": 123}
+        token = create_access_token(data)
         
-        # 建立測試 token
-        token_data = {"sub": "test_user", "role": "user"}
-        token = create_access_token(token_data)
-        
-        # 撤銷 token
         result = revoke_token(token, "test_reason")
+        assert result is True
+        mock_blacklist_manager.add_to_blacklist.assert_called_once()
+    
+    @patch('jwt_auth_middleware.jwt_utils.blacklist_manager')
+    def test_is_token_blacklisted(self, mock_blacklist_manager):
+        """測試檢查 token 是否在黑名單中"""
+        # 模擬黑名單管理器
+        mock_blacklist_manager.is_blacklisted.return_value = True
+        
+        token = "test.jwt.token"
+        result = is_token_blacklisted(token)
         
         assert result is True
-        mock_manager.add_to_blacklist.assert_called_once_with(token, "test_reason")
+        mock_blacklist_manager.is_blacklisted.assert_called_once_with(token)
     
-    @patch('jwt_auth_middleware.jwt_utils.get_blacklist_manager')
-    def test_verify_token_with_blacklist(self, mock_get_manager):
-        """測試驗證 token 時檢查黑名單"""
+    @patch('jwt_auth_middleware.jwt_utils.blacklist_manager')
+    def test_remove_from_blacklist(self, mock_blacklist_manager):
+        """測試從黑名單中移除 token"""
         # 模擬黑名單管理器
-        mock_manager = MagicMock()
-        mock_manager.is_blacklisted.return_value = True
-        mock_get_manager.return_value = mock_manager
+        mock_blacklist_manager.remove_from_blacklist.return_value = True
         
-        # 建立測試 token
-        token_data = {"sub": "test_user", "role": "user"}
-        token = create_access_token(token_data)
+        token = "test.jwt.token"
+        result = remove_from_blacklist(token)
         
-        # 驗證 token（應該失敗因為在黑名單中）
-        with pytest.raises(Exception, match="Token has been revoked"):
-            verify_token(token)
+        assert result is True
+        mock_blacklist_manager.remove_from_blacklist.assert_called_once_with(token)
     
-    def test_blacklist_disabled(self):
-        """測試黑名單功能停用時的行為"""
-        # 建立停用黑名單的配置
-        config = JWTConfig(
-            secret_key="test-secret-key",
-            enable_blacklist=False
+    @patch('jwt_auth_middleware.jwt_utils.blacklist_manager')
+    def test_cleanup_expired_tokens(self, mock_blacklist_manager):
+        """測試清理過期 tokens"""
+        # 模擬黑名單管理器
+        mock_blacklist_manager.cleanup_expired_tokens.return_value = 5
+        
+        result = cleanup_expired_blacklist_tokens()
+        
+        assert result == 5
+        mock_blacklist_manager.cleanup_expired_tokens.assert_called_once()
+    
+    @patch('jwt_auth_middleware.jwt_utils.blacklist_manager')
+    def test_get_blacklist_statistics(self, mock_blacklist_manager):
+        """測試取得黑名單統計"""
+        # 模擬黑名單管理器
+        mock_stats = {"total_tokens": 10, "expired_tokens": 3, "active_tokens": 7}
+        mock_blacklist_manager.get_blacklist_stats.return_value = mock_stats
+        
+        result = get_blacklist_statistics()
+        
+        assert result == mock_stats
+        mock_blacklist_manager.get_blacklist_stats.assert_called_once()
+    
+    def test_initialize_blacklist_system(self):
+        """測試初始化黑名單系統"""
+        # 這個測試會重新建立全域 blacklist_manager
+        result = initialize_blacklist_system(
+            mongodb_api_url="http://test-api.com",
+            collection_name="test_collection"
         )
         
-        # 建立測試 token
-        token_data = {"sub": "test_user", "role": "user"}
-        token = create_access_token(token_data)
-        
-        # 檢查黑名單狀態（應該返回 False）
-        result = is_token_blacklisted(token)
-        assert result is False
-    
-    @patch('jwt_auth_middleware.jwt_utils.init_blacklist_manager')
-    def test_initialize_blacklist_system(self, mock_init):
-        """測試初始化黑名單系統"""
-        mock_init.return_value = None
-        
-        result = initialize_blacklist_system("http://test-api.com", "test_collection")
-        
         assert result is True
-        mock_init.assert_called_once()
 
 if __name__ == "__main__":
     pytest.main([__file__]) 

@@ -1,6 +1,6 @@
 import pytest
 from flask import Flask, jsonify
-from jwt_auth_middleware import JWTManager, token_required, admin_required, create_access_token
+from jwt_auth_middleware import token_required, admin_required, create_access_token
 import datetime
 
 @pytest.fixture
@@ -9,8 +9,6 @@ def app():
     app.config['SECRET_KEY'] = 'test-secret-key'
     app.config['JWT_SECRET_KEY'] = 'test-jwt-secret'
     app.config['JWT_ACCESS_TOKEN_EXPIRES'] = datetime.timedelta(hours=1)
-    
-    jwt_manager = JWTManager(app)
     
     @app.route('/protected')
     @token_required
