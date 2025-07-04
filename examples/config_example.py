@@ -20,7 +20,7 @@ def example_basic_usage():
     secret_key = "your_super_secret_jwt_key_here"  # 實際應用中應該從環境變數或安全來源獲取
     
     # 使用預設配置（自動載入 config.yaml）
-    config = JWTConfig(secret_key=secret_key, config_file="../jwt_auth_middleware/config_example.yaml")
+    config = JWTConfig(secret_key=secret_key, config_file="../config_example.yaml")
     
     print(f"演算法: {config.algorithm}")
     print(f"Access Token 過期時間: {config.access_token_expires} 分鐘")
@@ -39,7 +39,7 @@ def example_custom_config_file():
     secret_key = "your_super_secret_jwt_key_here"
     
     # 指定自訂配置檔案
-    config = JWTConfig(secret_key=secret_key, config_file="../jwt_auth_middleware/config_example.yaml")
+    config = JWTConfig(secret_key=secret_key, config_file="../config_example.yaml")
     
     print(f"使用自訂配置檔案: {config}")
     print()
@@ -54,7 +54,7 @@ def example_programmatic_config():
     # 程式化設定配置（優先級最高）
     config = JWTConfig(
         secret_key=secret_key,
-        config_file="../jwt_auth_middleware/config_example.yaml"
+        config_file="../config_example.yaml"
     )
     
     print(f"程式化配置: {config}")
@@ -70,7 +70,7 @@ def example_factory_function():
     # 使用工廠函數創建配置
     config = create_jwt_config(
         secret_key=secret_key,
-        config_file="../jwt_auth_middleware/config_example.yaml"
+        config_file="../config_example.yaml"
     )
     
     print(f"工廠函數配置: {config}")
@@ -87,7 +87,7 @@ def example_environment_secret_key():
         print("例如：export JWT_SECRET_KEY='your_secret_key'")
         secret_key = "fallback_secret_key"  # 僅用於範例
     
-    config = JWTConfig(secret_key=secret_key, config_file="../jwt_auth_middleware/config_example.yaml")
+    config = JWTConfig(secret_key=secret_key, config_file="../config_example.yaml")
     print(f"環境變數配置: {config}")
     print()
 
@@ -97,7 +97,7 @@ def example_initialize_system():
     
     # 1. 創建配置
     secret_key = "your_super_secret_jwt_key_here"
-    config = JWTConfig(secret_key=secret_key, config_file="../jwt_auth_middleware/config_example.yaml")
+    config = JWTConfig(secret_key=secret_key, config_file="../config_example.yaml")
     
     # 2. 設定全域配置（讓其他函數使用）
     set_jwt_config(config)
@@ -112,7 +112,7 @@ def example_config_validation():
     # 測試有效配置
     valid_config = JWTConfig(
         secret_key="valid_secret_key",
-        config_file="../jwt_auth_middleware/config_example.yaml"
+        config_file="../config_example.yaml"
     )
     print(f"有效配置驗證: {valid_config.validate()}")
     
@@ -120,7 +120,7 @@ def example_config_validation():
     try:
         invalid_config = JWTConfig(
             secret_key="",  # 空密鑰
-            config_file="../jwt_auth_middleware/config_example.yaml"
+            config_file="../config_example.yaml"
         )
         print(f"無效配置驗證: {invalid_config.validate()}")
     except ValueError as e:
@@ -134,7 +134,7 @@ def example_missing_secret_key():
     
     try:
         # 嘗試創建沒有密鑰的配置
-        config = JWTConfig(secret_key="", config_file="../jwt_auth_middleware/config_example.yaml")
+        config = JWTConfig(secret_key="", config_file="../config_example.yaml")
         print("這不應該執行")
     except ValueError as e:
         print(f"正確捕獲錯誤: {e}")

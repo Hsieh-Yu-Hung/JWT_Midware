@@ -215,7 +215,7 @@ if __name__ == '__main__':
     # 使用新的配置系統
     config = JWTConfig(
         secret_key="your-super-secret-key",
-        config_file="../jwt_auth_middleware/config_example.yaml"
+        config_file="../config_example.yaml"
     )
     
     # 設定全域配置
