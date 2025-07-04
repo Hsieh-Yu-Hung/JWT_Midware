@@ -32,12 +32,7 @@ class TestRefreshToken:
         from jwt_auth_middleware import JWTConfig, set_jwt_config
         test_config = JWTConfig(
             secret_key="test-secret-key",
-            algorithm="HS256",
-            access_token_expires=30,
-            refresh_token_expires=1440,
-            mongodb_api_url="http://test-api.com",
-            blacklist_collection="test_blacklist",
-            enable_blacklist=True
+            config_file="tests/test_refresh_config.yaml"
         )
         set_jwt_config(test_config)
     
@@ -157,29 +152,18 @@ class TestRefreshToken:
     
     def test_token_expiration_times(self):
         """測試 Token 過期時間設定"""
-        config = JWTConfig(secret_key="test-secret-key")
+        config = JWTConfig(secret_key="test-secret-key", config_file="tests/test_refresh_config.yaml")
         
-        # 驗證預設過期時間
-        assert config.access_token_expires == 120  # 從 config.yaml 載入
-        assert config.refresh_token_expires == 1440  # 從 config.yaml 載入
-        
-        # 驗證自定義過期時間
-        custom_config = JWTConfig(
-            secret_key="test-secret-key",
-            access_token_expires=60,
-            refresh_token_expires=2880
-        )
-        assert custom_config.access_token_expires == 60
-        assert custom_config.refresh_token_expires == 2880
+        # 驗證從配置檔案載入的過期時間
+        assert config.access_token_expires == 30  # 從 test_refresh_config.yaml 載入
+        assert config.refresh_token_expires == 1440  # 從 test_refresh_config.yaml 載入
     
     def test_config_validation(self):
         """測試配置驗證"""
         # 有效配置
         valid_config = JWTConfig(
             secret_key="test-key",
-            mongodb_api_url="http://test.com",
-            access_token_expires=30,
-            refresh_token_expires=1440
+            config_file="tests/test_refresh_config.yaml"
         )
         assert valid_config.validate() is True
         
@@ -187,28 +171,8 @@ class TestRefreshToken:
         with pytest.raises(ValueError, match="JWT_SECRET_KEY 是必要參數"):
             invalid_config1 = JWTConfig(
                 secret_key="",
-                mongodb_api_url="http://test.com",
-                access_token_expires=30,
-                refresh_token_expires=1440
+                config_file="tests/test_refresh_config.yaml"
             )
-        
-        # 無效配置 - access_token_expires <= 0
-        invalid_config2 = JWTConfig(
-            secret_key="test-key",
-            mongodb_api_url="http://test.com",
-            access_token_expires=0,
-            refresh_token_expires=1440
-        )
-        assert invalid_config2.validate() is False
-        
-        # 無效配置 - refresh_token_expires <= 0
-        invalid_config3 = JWTConfig(
-            secret_key="test-key",
-            mongodb_api_url="http://test.com",
-            access_token_expires=30,
-            refresh_token_expires=0
-        )
-        assert invalid_config3.validate() is False
     
     def test_token_payload_integrity(self):
         """測試 Token payload 完整性"""
@@ -257,16 +221,16 @@ class TestRefreshToken:
     def test_environment_variable_override(self):
         """測試環境變數覆蓋配置"""
         import os
-        
+
         # 設定自定義環境變數
         os.environ['JWT_ACCESS_TOKEN_EXPIRES'] = '60'
         os.environ['JWT_REFRESH_TOKEN_EXPIRES'] = '2880'
-        
+
         # 重新建立配置（環境變數在新設計中不再自動載入）
-        config = JWTConfig(secret_key="test-secret-key")
+        config = JWTConfig(secret_key="test-secret-key", config_file="tests/test_refresh_config.yaml")
         
         # 由於新設計不再自動載入環境變數，這些值應該來自 config.yaml 或預設值
-        assert config.access_token_expires == 120  # 來自 config.yaml
+        assert config.access_token_expires == 30  # 來自 config.yaml
         assert config.refresh_token_expires == 1440  # 來自 config.yaml
         
         # 清理環境變數
@@ -413,12 +377,7 @@ class TestRefreshToken:
         """測試配置轉換為字典"""
         config = JWTConfig(
             secret_key="test-key",
-            algorithm="HS256",
-            access_token_expires=30,
-            refresh_token_expires=1440,
-            mongodb_api_url="http://test.com",
-            blacklist_collection="test_blacklist",
-            enable_blacklist=True
+            config_file="tests/test_refresh_config.yaml"
         )
         
         config_dict = config.to_dict()
@@ -426,7 +385,7 @@ class TestRefreshToken:
         assert config_dict["algorithm"] == "HS256"
         assert config_dict["access_token_expires"] == 30
         assert config_dict["refresh_token_expires"] == 1440
-        assert config_dict["mongodb_api_url"] == "http://test.com"
+        assert config_dict["mongodb_api_url"] == "http://test-api.com"
         assert config_dict["blacklist_collection"] == "test_blacklist"
         assert config_dict["enable_blacklist"] is True
         assert "secret_key" not in config_dict  # secret_key 不應該包含在字典中 

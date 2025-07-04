@@ -14,20 +14,21 @@ class BlacklistManager:
     """JWT 黑名單管理器"""
     
     def __init__(self, 
-                 mongodb_api_url: str,
-                 collection_name: str = "jwt_blacklist",
-                 jwt_config: Optional[JWTConfig] = None):
+                 jwt_config: JWTConfig,
+                 collection_name: Optional[str] = None):
         """
         初始化黑名單管理器
         
         Args:
-            mongodb_api_url: MongoDB API 的基礎 URL
-            collection_name: 黑名單集合名稱
-            jwt_config: JWT 配置實例
+            jwt_config: JWT 配置實例（包含 MongoDB API URL 和黑名單配置）
+            collection_name: 黑名單集合名稱（可選，預設使用配置中的值）
         """
-        self.mongodb_api_url = mongodb_api_url.rstrip('/')
-        self.collection_name = collection_name
-        self.jwt_config = jwt_config or JWTConfig()
+        if not jwt_config:
+            raise ValueError("JWT 配置實例是必要的")
+        
+        self.jwt_config = jwt_config
+        self.mongodb_api_url = jwt_config.mongodb_api_url.rstrip('/')
+        self.collection_name = collection_name or jwt_config.blacklist_collection
     
     def _hash_token(self, token: str) -> str:
         """

@@ -1,0 +1,14 @@
+jwt:
+  algorithm: HS256
+  access_token_expires: 30
+  refresh_token_expires: 1440
+
+api:
+  mode: internal
+
+mongodb:
+  internal_api_url: http://test-api.com
+  public_api_url: https://public-test-api.com
+  blacklist:
+    collection: test_blacklist
+    enabled: true 

@@ -154,14 +154,13 @@ from jwt_auth_middleware import BlacklistManager, JWTConfig
 # 建立自定義配置
 config = JWTConfig(
     secret_key="your-secret-key",
-    mongodb_api_url="http://your-api.com"
+    config_file="path/to/config.yaml"
 )
 
 # 建立黑名單管理器
 blacklist_mgr = BlacklistManager(
-    mongodb_api_url="http://your-api.com",
-    collection_name="custom_blacklist",
-    jwt_config=config
+    jwt_config=config,
+    collection_name="custom_blacklist"  # 可選，預設使用配置中的值
 )
 
 # 使用管理器
@@ -254,15 +253,38 @@ is_blacklisted = blacklist_mgr.is_blacklisted(token)
 
 ### JWTConfig 參數
 
-| 參數 | 類型 | 預設值 | 說明 |
-|------|------|--------|------|
-| `secret_key` | str | 環境變數 | JWT 密鑰 |
-| `algorithm` | str | "HS256" | JWT 演算法 |
-| `access_token_expires` | int | 30 | Access token 過期時間（分鐘） |
-| `refresh_token_expires` | int | 1440 | Refresh token 過期時間（分鐘） |
-| `mongodb_api_url` | str | 環境變數 | MongoDB API URL |
-| `blacklist_collection` | str | "jwt_blacklist" | 黑名單集合名稱 |
-| `enable_blacklist` | bool | True | 是否啟用黑名單功能 |
+| 參數 | 類型 | 必要 | 說明 |
+|------|------|------|------|
+| `secret_key` | str | 是 | JWT 密鑰 |
+| `config_file` | str | 是 | YAML 配置檔案路徑 |
+| `algorithm` | str | 否 | JWT 演算法（可覆蓋配置檔案） |
+| `access_token_expires` | int | 否 | Access token 過期時間（分鐘，可覆蓋配置檔案） |
+| `refresh_token_expires` | int | 否 | Refresh token 過期時間（分鐘，可覆蓋配置檔案） |
+| `blacklist_collection` | str | 否 | 黑名單集合名稱（可覆蓋配置檔案） |
+| `enable_blacklist` | bool | 否 | 是否啟用黑名單功能（可覆蓋配置檔案） |
+
+### 配置檔案結構
+
+配置檔案必須包含以下結構：
+
+```yaml
+jwt:
+  algorithm: HS256
+  access_token_expires: 720
+  refresh_token_expires: 1440
+
+api:
+  mode: internal  # 或 public
+
+mongodb:
+  internal_api_url: https://internal-api.example.com
+  public_api_url: https://public-api.example.com
+  blacklist:
+    collection: jwt_blacklist
+    enabled: true
+```
+
+系統會根據 `api.mode` 的值自動選擇對應的 MongoDB API URL。
 
 ## 安全考量
 
