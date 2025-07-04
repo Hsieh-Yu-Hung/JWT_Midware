@@ -90,16 +90,14 @@ class BlacklistManager:
             
             # 呼叫 MongoDB API 插入文件
             response = requests.post(
-                f"{self.mongodb_api_url}/insert",
-                json={
-                    "collection": self.collection_name,
-                    "document": document
-                },
+                f"{self.mongodb_api_url}/add/document/{self.collection_name}",
+                json={"data": document},
                 timeout=10
             )
             
             if response.status_code == 200:
-                return True
+                result = response.json()
+                return result.get("status") == "ok"
             else:
                 print(f"加入黑名單失敗: {response.status_code} - {response.text}")
                 return False
@@ -123,18 +121,15 @@ class BlacklistManager:
             token_hash = self._hash_token(token)
             
             # 呼叫 MongoDB API 查詢
-            response = requests.post(
-                f"{self.mongodb_api_url}/find",
-                json={
-                    "collection": self.collection_name,
-                    "filter": {"token_hash": token_hash}
-                },
+            response = requests.get(
+                f"{self.mongodb_api_url}/search/documents/{self.collection_name}",
+                params={"token_hash": token_hash},
                 timeout=10
             )
             
             if response.status_code == 200:
                 result = response.json()
-                return len(result.get("documents", [])) > 0
+                return len(result.get("data", [])) > 0
             else:
                 print(f"查詢黑名單失敗: {response.status_code} - {response.text}")
                 return False
@@ -157,21 +152,30 @@ class BlacklistManager:
             # 雜湊 token
             token_hash = self._hash_token(token)
             
-            # 呼叫 MongoDB API 刪除
-            response = requests.post(
-                f"{self.mongodb_api_url}/delete",
-                json={
-                    "collection": self.collection_name,
-                    "filter": {"token_hash": token_hash}
-                },
+            # 先查詢文件 ID
+            response = requests.get(
+                f"{self.mongodb_api_url}/search/documents/{self.collection_name}",
+                params={"token_hash": token_hash},
                 timeout=10
             )
             
             if response.status_code == 200:
-                return True
-            else:
-                print(f"從黑名單移除失敗: {response.status_code} - {response.text}")
-                return False
+                result = response.json()
+                documents = result.get("data", [])
+                if documents:
+                    # 取得第一個文件的 ID
+                    doc_id = documents[0].get("_id")
+                    if doc_id:
+                        # 刪除文件
+                        delete_response = requests.delete(
+                            f"{self.mongodb_api_url}/delete/document/{self.collection_name}/{doc_id}",
+                            timeout=10
+                        )
+                        if delete_response.status_code == 200:
+                            return True
+            
+            print(f"從黑名單移除失敗: token 不存在或刪除失敗")
+            return False
                 
         except Exception as e:
             print(f"從黑名單移除時發生錯誤: {str(e)}")
@@ -189,15 +193,10 @@ class BlacklistManager:
             now = datetime.now(timezone.utc)
             
             # 呼叫 MongoDB API 刪除過期文件
-            response = requests.post(
-                f"{self.mongodb_api_url}/delete",
-                json={
-                    "collection": self.collection_name,
-                    "filter": {
-                        "expires_at": {
-                            "$lt": now.isoformat()
-                        }
-                    }
+            response = requests.delete(
+                f"{self.mongodb_api_url}/delete/documents/{self.collection_name}",
+                params={
+                    "expires_at": f"$lt:{now.isoformat()}"
                 },
                 timeout=10
             )
@@ -221,78 +220,42 @@ class BlacklistManager:
             統計資訊字典
         """
         try:
-            # 呼叫 MongoDB API 取得集合統計
-            response = requests.post(
-                f"{self.mongodb_api_url}/count",
-                json={
-                    "collection": self.collection_name
+            # 取得總數
+            total_response = requests.get(
+                f"{self.mongodb_api_url}/search/documents/{self.collection_name}/count",
+                timeout=10
+            )
+            
+            total_count = 0
+            if total_response.status_code == 200:
+                result = total_response.json()
+                total_count = result.get("count", 0)
+            
+            # 取得過期數量
+            now = datetime.now(timezone.utc)
+            expired_response = requests.get(
+                f"{self.mongodb_api_url}/search/documents/{self.collection_name}/count",
+                params={
+                    "expires_at": f"$lt:{now.isoformat()}"
                 },
                 timeout=10
             )
             
-            if response.status_code == 200:
-                result = response.json()
-                total_count = result.get("count", 0)
-                
-                # 取得過期 tokens 數量
-                now = datetime.now(timezone.utc)
-                expired_response = requests.post(
-                    f"{self.mongodb_api_url}/count",
-                    json={
-                        "collection": self.collection_name,
-                        "filter": {
-                            "expires_at": {
-                                "$lt": now.isoformat()
-                            }
-                        }
-                    },
-                    timeout=10
-                )
-                
-                expired_count = 0
-                if expired_response.status_code == 200:
-                    expired_result = expired_response.json()
-                    expired_count = expired_result.get("count", 0)
-                
-                return {
-                    "total_tokens": total_count,
-                    "expired_tokens": expired_count,
-                    "active_tokens": total_count - expired_count
-                }
-            else:
-                print(f"取得統計資訊失敗: {response.status_code} - {response.text}")
-                return {"total_tokens": 0, "expired_tokens": 0, "active_tokens": 0}
-                
+            expired_count = 0
+            if expired_response.status_code == 200:
+                result = expired_response.json()
+                expired_count = result.get("count", 0)
+            
+            return {
+                "total_tokens": total_count,
+                "expired_tokens": expired_count,
+                "active_tokens": total_count - expired_count
+            }
+            
         except Exception as e:
-            print(f"取得統計資訊時發生錯誤: {str(e)}")
-            return {"total_tokens": 0, "expired_tokens": 0, "active_tokens": 0}
-
-# 全域黑名單管理器實例
-blacklist_manager = None
-
-def init_blacklist_manager(mongodb_api_url: str, 
-                          collection_name: str = "jwt_blacklist",
-                          jwt_config: Optional[JWTConfig] = None) -> BlacklistManager:
-    """
-    初始化全域黑名單管理器
-    
-    Args:
-        mongodb_api_url: MongoDB API 的基礎 URL
-        collection_name: 黑名單集合名稱
-        jwt_config: JWT 配置實例
-        
-    Returns:
-        黑名單管理器實例
-    """
-    global blacklist_manager
-    blacklist_manager = BlacklistManager(mongodb_api_url, collection_name, jwt_config)
-    return blacklist_manager
-
-def get_blacklist_manager() -> Optional[BlacklistManager]:
-    """
-    取得全域黑名單管理器
-    
-    Returns:
-        黑名單管理器實例，如果未初始化則返回 None
-    """
-    return blacklist_manager 
+            print(f"取得黑名單統計時發生錯誤: {str(e)}")
+            return {
+                "total_tokens": 0,
+                "expired_tokens": 0,
+                "active_tokens": 0
+            } 

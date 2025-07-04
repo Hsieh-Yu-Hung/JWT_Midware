@@ -85,7 +85,7 @@ print(f"Token 在黑名單中: {is_blacklisted}")
 
 ```python
 from flask import Flask, request, jsonify
-from jwt_auth_middleware import JWTManager, JWTConfig
+from jwt_auth_middleware import JWTConfig, token_required, create_access_token, revoke_token
 
 app = Flask(__name__)
 
@@ -95,9 +95,6 @@ jwt_config = JWTConfig(
     mongodb_api_url="http://your-mongodb-api-url.com",
     enable_blacklist=True
 )
-
-# 初始化 JWT 管理器
-jwt_manager = JWTManager(app, jwt_config)
 
 # 初始化黑名單系統
 @app.before_first_request
@@ -114,7 +111,7 @@ def login():
 
 # 登出端點
 @app.route('/logout', methods=['POST'])
-@jwt_manager.token_required
+@token_required
 def logout(current_user):
     auth_header = request.headers.get('Authorization')
     if auth_header and auth_header.startswith('Bearer '):

@@ -12,9 +12,14 @@
 - ✅ 支援 token 重新整理
 - ✅ 支援 token 撤銷
 
-## 📦 安裝
+## 📋 系統需求
 
-### 從 GitHub 安裝（推薦）
+- Python 3.8 或更高版本
+- Flask 3.0.0 或更高版本
+- MongoDB API（用於黑名單功能）
+- 網路連線（用於 MongoDB API 存取）
+
+## 📦 安裝
 
 ```bash
 # 安裝最新版本
@@ -51,11 +56,16 @@ pip install -e .
 
 ```python
 from flask import Flask
-from jwt_auth_middleware import JWTManager
+from jwt_auth_middleware import JWTConfig, set_jwt_config
 
 app = Flask(__name__)
-app.config['JWT_SECRET_KEY'] = 'your-secret-key'
-jwt_manager = JWTManager(app)
+
+# 創建 JWT 配置
+secret_key = "your-super-secret-jwt-key-here"  # 實際應用中應從環境變數獲取
+config = JWTConfig(secret_key=secret_key)
+
+# 設定全域配置
+set_jwt_config(config)
 ```
 
 ### 2. 使用裝飾器
@@ -86,7 +96,24 @@ def protected_route(current_user):
 @admin_required
 def admin_route(current_user):
     return jsonify({"message": "Admin access granted"})
-```
+
+# Refresh Token 端點
+@app.route('/refresh', methods=['POST'])
+@refresh_token_required
+def refresh_token(current_user):
+    new_token = create_access_token(current_user)
+    return jsonify({"access_token": new_token})
+
+# 登出端點（撤銷 token）
+@app.route('/logout', methods=['POST'])
+@token_required
+def logout(current_user):
+    from jwt_auth_middleware import revoke_token
+    auth_header = request.headers.get('Authorization')
+    if auth_header and auth_header.startswith('Bearer '):
+        token = auth_header.split(' ')[1]
+        revoke_token(token, reason="user_logout")
+    return jsonify({"message": "Logged out successfully"})
 
 ## 🎯 裝飾器
 
@@ -96,36 +123,151 @@ def admin_route(current_user):
 | `@admin_required`             | 要求管理員權限 | `@admin_required`                     |
 | `@role_required(roles)`       | 要求特定角色   | `@role_required(["admin", "user"])`   |
 | `@permission_required(perms)` | 要求特定權限   | `@permission_required("delete_user")` |
+| `@refresh_token_required`     | 驗證 Refresh token | `@refresh_token_required`           |
 
 ## ⚙️ 配置
 
-### 環境變數
+### 新的配置系統
 
-```bash
-SECRET_KEY=your-super-secret-key-here
-JWT_ALGORITHM=HS256
-JWT_ACCESS_TOKEN_EXPIRES=30
-JWT_REFRESH_TOKEN_EXPIRES=1440
-```
+本套件現在支援更靈活的配置管理，將敏感和非敏感配置分離：
 
-### 自定義配置
+- **敏感配置**：由應用端提供（如 JWT 密鑰）
+- **非敏感配置**：存放在 `config.yaml` 檔案中（如演算法、過期時間等）
+
+**重要**：應用端必須提供 JWT_SECRET_KEY，套件本身不預設任何密鑰。
+
+### 配置檔案
+
+#### 1. 應用端密鑰管理
+
+⚠️ **重要**：應用端必須提供 JWT_SECRET_KEY，建議從環境變數獲取！
 
 ```python
-from jwt_auth_middleware import JWTConfig
+# 從環境變數獲取密鑰（推薦做法）
+import os
+secret_key = os.getenv('JWT_SECRET_KEY')
+if not secret_key:
+    raise ValueError("請設定 JWT_SECRET_KEY 環境變數")
 
+# 或者從其他安全來源獲取
+secret_key = "your_super_secret_jwt_key_here"
+```
+
+#### 2. YAML 配置檔案 (config.yaml)
+
+✅ **安全**：可以安全地提交到版本控制
+
+```yaml
+# JWT 認證中間件配置檔案
+jwt:
+  # JWT 演算法
+  algorithm: HS256
+  
+  # Token 過期時間（分鐘）
+  access_token_expires: 120
+  refresh_token_expires: 1440
+
+mongodb:
+  # MongoDB API URL（用於黑名單功能）
+  api_url: https://db-operation-xbbbehjawk.cn-shanghai-vpc.fcapp.run
+  
+  # 黑名單相關配置
+  blacklist:
+    collection: jwt_blacklist
+    enabled: true
+
+# 其他配置選項
+app:
+  # 是否載入 .env 檔案（預設為 true）
+  load_dotenv: true
+  
+  # 除錯模式
+  debug: false
+```
+
+### 配置載入優先順序
+
+1. **直接傳入的參數**（最高優先級）
+2. **YAML 配置檔案**（用於非敏感配置）
+3. **預設值**（最低優先級）
+
+**注意**：JWT_SECRET_KEY 必須由應用端提供，不會從環境變數自動載入。
+
+### 使用方式
+
+#### 基本使用
+
+```python
+from jwt_auth_middleware.config import JWTConfig, create_jwt_config
+from jwt_auth_middleware import set_jwt_config
+
+# 應用端提供密鑰
+secret_key = "your_super_secret_jwt_key_here"
+
+# 創建配置
+config = JWTConfig(secret_key=secret_key)
+
+# 設定全域配置（讓其他函數使用）
+set_jwt_config(config)
+```
+
+#### 自訂配置檔案
+
+```python
+# 指定自訂配置檔案
+config = JWTConfig(secret_key=secret_key, config_file="custom_config.yaml")
+```
+
+#### 程式化配置
+
+```python
+# 程式化設定配置（優先級最高）
 config = JWTConfig(
-    secret_key="your-custom-secret",
-    algorithm="HS256",
+    secret_key=secret_key,
+    algorithm="HS512",
     access_token_expires=60,
-    refresh_token_expires=1440
+    refresh_token_expires=720,
+    mongodb_api_url="https://custom-mongodb-api.example.com",
+    blacklist_collection="custom_blacklist",
+    enable_blacklist=False
 )
 ```
+
+### 配置驗證
+
+```python
+# 驗證配置是否有效
+if config.validate():
+    print("配置有效")
+else:
+    print("配置無效")
+```
+
+### 故障排除
+
+如果遇到配置錯誤：
+
+1. 確認應用端提供了 `JWT_SECRET_KEY`
+2. 確認 `config.yaml` 檔案格式正確
+3. 檢查配置檔案的優先順序
+4. 使用 `config.validate()` 驗證配置
+5. 確認已使用 `set_jwt_config()` 設定全域配置
 
 ## 🧪 運行測試
 
 ```bash
 # 使用 pytest
 python -m pytest tests/ -v
+
+# 執行特定測試
+python -m pytest tests/test_blacklist.py -v
+python -m pytest tests/test_refresh_token.py -v
+
+# 執行測試並顯示覆蓋率
+python -m pytest --cov=jwt_auth_middleware --cov-report=html
+
+# 執行測試並生成覆蓋率報告
+python -m pytest --cov=jwt_auth_middleware --cov-report=term-missing
 ```
 
 ## 📋 版本管理
@@ -249,3 +391,18 @@ git push origin v1.0.1
 - 此套件不再自動發布到 PyPI
 - 所有版本都通過 GitHub Releases 管理
 - 建議使用 GitHub 安裝方式以獲得最新功能和修復
+
+## 📚 更多文檔
+
+- [快速開始指南](docs/quickstart.md) - 5 分鐘快速上手
+- [API 參考](docs/api_reference.md) - 完整的 API 文檔
+- [黑名單系統使用指南](docs/blacklist_usage.md) - 詳細的黑名單功能說明
+- [完整範例](examples/complete_example.py) - 包含所有功能的完整應用程式範例
+- [Refresh Token 範例](examples/refresh_token_example.py) - Token 重新整理功能範例
+- [基本使用範例](examples/general_example.py) - 基本認證功能範例
+
+## 🔗 相關連結
+
+- [GitHub 專案](https://github.com/Hsieh-Yu-Hung/JWT_Midware)
+- [問題回報](https://github.com/Hsieh-Yu-Hung/JWT_Midware/issues)
+- [最新版本](https://github.com/Hsieh-Yu-Hung/JWT_Midware/releases)
