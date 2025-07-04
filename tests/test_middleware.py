@@ -11,12 +11,7 @@ def app():
     # 設置測試 JWT 配置
     test_config = JWTConfig(
         secret_key="test-jwt-secret",
-        algorithm="HS256",
-        access_token_expires=60,
-        refresh_token_expires=1440,
-        mongodb_api_url="http://localhost:3001",
-        blacklist_collection="jwt_blacklist",
-        enable_blacklist=False
+        config_file="tests/test_middleware_config.yaml"
     )
     set_jwt_config(test_config)
     

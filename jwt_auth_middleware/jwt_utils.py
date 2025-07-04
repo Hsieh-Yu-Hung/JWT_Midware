@@ -36,8 +36,6 @@ def _get_blacklist_manager() -> Optional[BlacklistManager]:
         config = _get_jwt_config()
         if config.enable_blacklist and config.mongodb_api_url:
             _blacklist_manager = BlacklistManager(
-                mongodb_api_url=config.mongodb_api_url,
-                collection_name=config.blacklist_collection,
                 jwt_config=config
             )
     return _blacklist_manager
@@ -374,13 +372,11 @@ def get_blacklist_statistics() -> Dict[str, Any]:
     
     return blacklist_manager.get_blacklist_stats()
 
-def initialize_blacklist_system(mongodb_api_url: str = None, 
-                               collection_name: str = None) -> bool:
+def initialize_blacklist_system(collection_name: str = None) -> bool:
     """
     初始化黑名單系統
     
     Args:
-        mongodb_api_url: MongoDB API URL（如果為 None 則使用配置中的值）
         collection_name: 集合名稱（如果為 None 則使用配置中的值）
         
     Returns:
@@ -390,15 +386,13 @@ def initialize_blacklist_system(mongodb_api_url: str = None,
     
     try:
         jwt_config = _get_jwt_config()
-        api_url = mongodb_api_url or jwt_config.mongodb_api_url
-        collection = collection_name or jwt_config.blacklist_collection
         
-        if not api_url:
-            print("錯誤: 未提供 MongoDB API URL")
+        if not jwt_config.mongodb_api_url:
+            print("錯誤: 配置中未設定 MongoDB API URL")
             return False
         
         # 重新建立黑名單管理器
-        _blacklist_manager = BlacklistManager(api_url, collection, jwt_config)
+        _blacklist_manager = BlacklistManager(jwt_config, collection_name)
         return True
     except Exception as e:
         print(f"初始化黑名單系統時發生錯誤: {str(e)}")

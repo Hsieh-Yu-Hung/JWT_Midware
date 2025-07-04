@@ -11,12 +11,7 @@ def test_config_without_dotenv():
     # 設置測試環境變數
     test_config = JWTConfig(
         secret_key="test-secret-key",
-        algorithm="HS256",
-        access_token_expires=30,
-        refresh_token_expires=1440,
-        mongodb_api_url="http://localhost:3001",
-        blacklist_collection="jwt_blacklist",
-        enable_blacklist=False
+        config_file="tests/test_config.yaml"
     )
     
     # 設置配置
@@ -36,12 +31,7 @@ def test_config_validation():
     # 測試有效配置
     valid_config = JWTConfig(
         secret_key="test-secret",
-        algorithm="HS256",
-        access_token_expires=30,
-        refresh_token_expires=1440,
-        mongodb_api_url="http://localhost:3001",
-        blacklist_collection="jwt_blacklist",
-        enable_blacklist=False
+        config_file="tests/test_config.yaml"
     )
     assert valid_config.validate() is True
     
@@ -49,24 +39,14 @@ def test_config_validation():
     with pytest.raises(ValueError, match="JWT_SECRET_KEY 是必要參數"):
         invalid_config = JWTConfig(
             secret_key="",
-            algorithm="HS256",
-            access_token_expires=30,
-            refresh_token_expires=1440,
-            mongodb_api_url="http://localhost:3001",
-            blacklist_collection="jwt_blacklist",
-            enable_blacklist=False
+            config_file="tests/test_config.yaml"
         )
 
 def test_config_to_dict():
     """測試配置轉換為字典"""
     config = JWTConfig(
         secret_key="test-secret",
-        algorithm="HS256",
-        access_token_expires=30,
-        refresh_token_expires=1440,
-        mongodb_api_url="http://localhost:3001",
-        blacklist_collection="jwt_blacklist",
-        enable_blacklist=False
+        config_file="tests/test_config.yaml"
     )
     
     config_dict = config.to_dict()

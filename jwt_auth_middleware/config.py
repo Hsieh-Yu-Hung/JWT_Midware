@@ -12,31 +12,18 @@ class JWTConfig:
     """JWT 配置類別"""
     
     def __init__(self, 
-                 secret_key: str,  # 改為必要參數
-                 config_file: Optional[str] = None,
-                 algorithm: Optional[str] = None,
-                 access_token_expires: Optional[int] = None,
-                 refresh_token_expires: Optional[int] = None,
-                 mongodb_api_url: Optional[str] = None,
-                 blacklist_collection: Optional[str] = None,
-                 enable_blacklist: Optional[bool] = None):
+                 secret_key: str,  # 必要參數
+                 config_file: str):  # 必要參數
         """
         初始化 JWT 配置
         
         配置載入優先順序：
-        1. 直接傳入的參數（最高優先級）
-        2. YAML 配置檔案（用於非敏感配置）
-        3. 預設值（最低優先級）
+        1. YAML 配置檔案（主要配置來源）
+        2. 預設值（備用）
         
         Args:
             secret_key: JWT 密鑰（必要參數，由應用端提供）
-            config_file: YAML 配置檔案路徑
-            algorithm: JWT 演算法
-            access_token_expires: Access token 過期時間（分鐘）
-            refresh_token_expires: Refresh token 過期時間（分鐘）
-            mongodb_api_url: MongoDB API URL（用於黑名單功能）
-            blacklist_collection: 黑名單集合名稱
-            enable_blacklist: 是否啟用黑名單功能
+            config_file: YAML 配置檔案路徑（必要參數，由應用端提供）
             
         Raises:
             ValueError: 當必要的配置未設定時拋出異常
@@ -46,44 +33,97 @@ class JWTConfig:
         if not secret_key or secret_key.strip() == '':
             raise ValueError("JWT_SECRET_KEY 是必要參數，不能為空。請在創建 JWTConfig 時提供此值。")
         
+        if not config_file or config_file.strip() == '':
+            raise ValueError("config_file 是必要參數，不能為空。請在創建 JWTConfig 時提供配置檔案路徑。")
+        
         # 載入 YAML 配置檔案
         self._config_data = self._load_yaml_config(config_file)
         
-        # 設定配置值，優先順序：參數 > YAML > 預設值
-        self.secret_key = secret_key
-        self.algorithm = algorithm or self._get_config_value('jwt.algorithm', 'HS256')
-        self.access_token_expires = access_token_expires if access_token_expires is not None else self._get_config_value('jwt.access_token_expires', 120, int)
-        self.refresh_token_expires = refresh_token_expires if refresh_token_expires is not None else self._get_config_value('jwt.refresh_token_expires', 1440, int)
-        self.mongodb_api_url = mongodb_api_url if mongodb_api_url is not None else self._get_config_value('mongodb.api_url')
-        self.blacklist_collection = blacklist_collection or self._get_config_value('mongodb.blacklist.collection', 'jwt_blacklist')
-        self.enable_blacklist = enable_blacklist if enable_blacklist is not None else self._get_config_value('mongodb.blacklist.enabled', True, bool)
-    
-    def _load_yaml_config(self, config_file: Optional[str] = None) -> Dict[str, Any]:
-        """載入 YAML 配置檔案"""
-        if config_file is None:
-            # 尋找預設配置檔案
-            possible_paths = [
-                'config.yaml',
-                'config.yml',
-                'jwt_config.yaml',
-                'jwt_config.yml'
-            ]
-            
-            for path in possible_paths:
-                if Path(path).exists():
-                    config_file = path
-                    break
+        # 驗證配置檔案結構
+        self._validate_config_structure()
         
-        if config_file and Path(config_file).exists():
-            try:
-                with open(config_file, 'r', encoding='utf-8') as f:
-                    return yaml.safe_load(f) or {}
-            except Exception as e:
-                print(f"警告：無法載入配置檔案 {config_file}: {e}")
-                return {}
+        # 設定配置值，從配置檔案載入
+        self.secret_key = secret_key
+        self.algorithm = self._get_config_value('jwt.algorithm', 'HS256')
+        self.access_token_expires = self._get_config_value('jwt.access_token_expires', 120, int)
+        self.refresh_token_expires = self._get_config_value('jwt.refresh_token_expires', 1440, int)
+        
+        # 根據 API 模式決定 MongoDB API URL
+        self.api_mode = self._get_config_value('api.mode', 'internal')
+        if self.api_mode not in ['internal', 'public']:
+            raise ValueError(f"無效的 API 模式: {self.api_mode}。可選值: internal, public")
+        
+        if self.api_mode == 'internal':
+            self.mongodb_api_url = self._get_config_value('mongodb.internal_api_url')
         else:
-            print("警告：未找到配置檔案，將使用預設值")
-            return {}
+            self.mongodb_api_url = self._get_config_value('mongodb.public_api_url')
+        
+        self.blacklist_collection = self._get_config_value('mongodb.blacklist.collection', 'jwt_blacklist')
+        self.enable_blacklist = self._get_config_value('mongodb.blacklist.enabled', True, bool)
+    
+    def _load_yaml_config(self, config_file: str) -> Dict[str, Any]:
+        """載入 YAML 配置檔案"""
+        if not Path(config_file).exists():
+            raise FileNotFoundError(f"配置檔案不存在：{config_file}")
+        
+        try:
+            with open(config_file, 'r', encoding='utf-8') as f:
+                return yaml.safe_load(f) or {}
+        except Exception as e:
+            raise ValueError(f"無法載入配置檔案 {config_file}: {e}")
+    
+    def _validate_config_structure(self) -> None:
+        """驗證配置檔案結構是否正確"""
+        required_sections = {
+            'jwt': ['algorithm', 'access_token_expires', 'refresh_token_expires'],
+            'api': ['mode'],
+            'mongodb': ['internal_api_url', 'public_api_url', 'blacklist']
+        }
+        
+        for section, required_keys in required_sections.items():
+            if section not in self._config_data:
+                raise ValueError(f"配置檔案缺少必要區段: {section}")
+            
+            section_data = self._config_data[section]
+            for key in required_keys:
+                if key not in section_data:
+                    raise ValueError(f"配置檔案 {section} 區段缺少必要配置: {key}")
+        
+        # 驗證 blacklist 子區段
+        blacklist_data = self._config_data['mongodb']['blacklist']
+        required_blacklist_keys = ['collection', 'enabled']
+        for key in required_blacklist_keys:
+            if key not in blacklist_data:
+                raise ValueError(f"配置檔案 mongodb.blacklist 區段缺少必要配置: {key}")
+        
+        # 驗證 API 模式值
+        api_mode = self._config_data['api']['mode']
+        if api_mode not in ['internal', 'public']:
+            raise ValueError(f"無效的 API 模式: {api_mode}。可選值: internal, public")
+        
+        # 驗證 URL 格式
+        internal_url = self._config_data['mongodb']['internal_api_url']
+        public_url = self._config_data['mongodb']['public_api_url']
+        
+        if not internal_url.startswith(('http://', 'https://')):
+            raise ValueError(f"無效的內部 API URL 格式: {internal_url}")
+        if not public_url.startswith(('http://', 'https://')):
+            raise ValueError(f"無效的公網 API URL 格式: {public_url}")
+        
+        # 驗證數值範圍
+        access_expires = self._config_data['jwt']['access_token_expires']
+        refresh_expires = self._config_data['jwt']['refresh_token_expires']
+        
+        if not isinstance(access_expires, int) or access_expires <= 0:
+            raise ValueError(f"無效的 access_token_expires 值: {access_expires}。必須為正整數")
+        if not isinstance(refresh_expires, int) or refresh_expires <= 0:
+            raise ValueError(f"無效的 refresh_token_expires 值: {refresh_expires}。必須為正整數")
+        
+        # 驗證演算法
+        algorithm = self._config_data['jwt']['algorithm']
+        valid_algorithms = ['HS256', 'HS384', 'HS512', 'RS256', 'RS384', 'RS512']
+        if algorithm not in valid_algorithms:
+            raise ValueError(f"無效的 JWT 演算法: {algorithm}。可選值: {', '.join(valid_algorithms)}")
     
     def _get_config_value(self, key_path: str, default: Any = None, value_type: type = str) -> Any:
         """
@@ -123,15 +163,20 @@ class JWTConfig:
         Returns:
             配置是否有效
         """
-        if not self.secret_key or self.secret_key == '':
+        try:
+            if not self.secret_key or self.secret_key.strip() == '':
+                return False
+            if not self.mongodb_api_url or self.mongodb_api_url.strip() == '':
+                return False
+            if self.access_token_expires <= 0:
+                return False
+            if self.refresh_token_expires <= 0:
+                return False
+            if self.api_mode not in ['internal', 'public']:
+                return False
+            return True
+        except Exception:
             return False
-        if not self.mongodb_api_url or self.mongodb_api_url == '':
-            return False
-        if self.access_token_expires <= 0:
-            return False
-        if self.refresh_token_expires <= 0:
-            return False
-        return True
     
     def to_dict(self) -> dict:
         """
@@ -144,6 +189,7 @@ class JWTConfig:
             'algorithm': self.algorithm,
             'access_token_expires': self.access_token_expires,
             'refresh_token_expires': self.refresh_token_expires,
+            'api_mode': self.api_mode,
             'mongodb_api_url': self.mongodb_api_url,
             'blacklist_collection': self.blacklist_collection,
             'enable_blacklist': self.enable_blacklist
@@ -155,15 +201,15 @@ class JWTConfig:
         return f"JWTConfig({', '.join(f'{k}={v}' for k, v in config_dict.items())})"
 
 # 移除預設配置函數，改為提供工廠函數
-def create_jwt_config(secret_key: str, **kwargs) -> JWTConfig:
+def create_jwt_config(secret_key: str, config_file: str) -> JWTConfig:
     """
     創建 JWT 配置的工廠函數
     
     Args:
         secret_key: JWT 密鑰（必要參數）
-        **kwargs: 其他配置參數
+        config_file: YAML 配置檔案路徑（必要參數）
         
     Returns:
         JWTConfig 實例
     """
-    return JWTConfig(secret_key=secret_key, **kwargs) 
+    return JWTConfig(secret_key=secret_key, config_file=config_file) 

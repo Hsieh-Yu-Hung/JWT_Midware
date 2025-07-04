@@ -25,20 +25,51 @@ class TestBlacklistManager:
     
     def setup_method(self):
         """設定測試環境"""
+        # 建立測試配置檔案
+        import tempfile
+        import yaml
+        
+        test_config_data = {
+            'jwt': {
+                'algorithm': 'HS256',
+                'access_token_expires': 30,
+                'refresh_token_expires': 1440
+            },
+            'api': {
+                'mode': 'internal'
+            },
+            'mongodb': {
+                'internal_api_url': 'http://test-api.com',
+                'public_api_url': 'http://test-public-api.com',
+                'blacklist': {
+                    'collection': 'test_blacklist',
+                    'enabled': True
+                }
+            }
+        }
+        
+        # 建立臨時配置檔案
+        self.temp_config_file = tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False)
+        yaml.dump(test_config_data, self.temp_config_file)
+        self.temp_config_file.close()
+        
         self.config = JWTConfig(
             secret_key="test-secret-key",
-            algorithm="HS256",
-            access_token_expires=30,
-            mongodb_api_url="http://test-api.com",
-            blacklist_collection="test_blacklist",
-            enable_blacklist=True
+            config_file=self.temp_config_file.name
         )
         
         self.blacklist_mgr = BlacklistManager(
-            mongodb_api_url="http://test-api.com",
-            collection_name="test_blacklist",
             jwt_config=self.config
         )
+    
+    def teardown_method(self):
+        """清理測試環境"""
+        import os
+        if hasattr(self, 'temp_config_file'):
+            try:
+                os.unlink(self.temp_config_file.name)
+            except:
+                pass
     
     def test_hash_token(self):
         """測試 token 雜湊功能"""
@@ -100,25 +131,49 @@ class TestJWTUtils:
     
     def setup_method(self):
         """設定測試環境"""
-        # 設定測試環境變數
-        import os
-        os.environ['JWT_SECRET_KEY'] = 'test-secret-key'
-        os.environ['JWT_ALGORITHM'] = 'HS256'
-        os.environ['MONGODB_API_URL'] = 'http://test-api.com'
-        os.environ['JWT_BLACKLIST_COLLECTION'] = 'test_blacklist'
-        os.environ['JWT_ENABLE_BLACKLIST'] = 'true'
+        # 建立測試配置檔案
+        import tempfile
+        import yaml
+        
+        test_config_data = {
+            'jwt': {
+                'algorithm': 'HS256',
+                'access_token_expires': 30,
+                'refresh_token_expires': 1440
+            },
+            'api': {
+                'mode': 'internal'
+            },
+            'mongodb': {
+                'internal_api_url': 'http://test-api.com',
+                'public_api_url': 'http://test-public-api.com',
+                'blacklist': {
+                    'collection': 'test_blacklist',
+                    'enabled': True
+                }
+            }
+        }
+        
+        # 建立臨時配置檔案
+        self.temp_config_file = tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False)
+        yaml.dump(test_config_data, self.temp_config_file)
+        self.temp_config_file.close()
         
         # 使用新的配置系統
         test_config = JWTConfig(
             secret_key="test-secret-key",
-            algorithm="HS256",
-            access_token_expires=30,
-            refresh_token_expires=1440,
-            mongodb_api_url="http://test-api.com",
-            blacklist_collection="test_blacklist",
-            enable_blacklist=True
+            config_file=self.temp_config_file.name
         )
         set_jwt_config(test_config)
+    
+    def teardown_method(self):
+        """清理測試環境"""
+        import os
+        if hasattr(self, 'temp_config_file'):
+            try:
+                os.unlink(self.temp_config_file.name)
+            except:
+                pass
     
     def test_create_access_token(self):
         """測試建立 access token"""
@@ -213,7 +268,6 @@ class TestJWTUtils:
         """測試初始化黑名單系統"""
         # 這個測試會重新建立全域 blacklist_manager
         result = initialize_blacklist_system(
-            mongodb_api_url="http://test-api.com",
             collection_name="test_collection"
         )
         
