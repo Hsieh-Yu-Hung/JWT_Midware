@@ -6,7 +6,7 @@ JWT Blacklist Management
 
 import requests
 import hashlib
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 from .config import JWTConfig
 
@@ -193,12 +193,20 @@ class BlacklistManager:
             # 取得當前時間
             now = datetime.now(timezone.utc)
             
+            # 準備查詢條件
+            query_data = {
+                "query": {
+                    "expires_at": {
+                        "$lt": now.isoformat()
+                    }
+                }
+            }
+            
             # 呼叫 MongoDB API 刪除過期文件
             response = requests.delete(
                 f"{self.mongodb_api_url}/delete/documents/{self.collection_name}",
-                params={
-                    "expires_at": f"$lt:{now.isoformat()}"
-                },
+                json=query_data,
+                headers={"Content-Type": "application/json"},
                 timeout=10
             )
             
