@@ -8,10 +8,10 @@ with open("requirements.txt", "r", encoding="utf-8") as fh:
 
 setup(
     name="jwt_auth_middleware",
-    version="1.3.2",
+    version="2.0.0",
     author="JWT Auth Team",
     author_email="support@jwt-auth.com",
-    description="A comprehensive JWT Authentication Middleware for Flask Applications with MongoDB support",
+    description="A lightweight JWT Authentication Middleware for Flask Applications with decorators for token validation and role-based access control",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/Hsieh-Yu-Hung/JWT_Midware",
