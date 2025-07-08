@@ -8,10 +8,10 @@
 - ✅ 支援角色基礎存取控制 (RBAC)
 - ✅ 支援權限基礎存取控制 (PBAC)
 - ✅ 可自定義配置
-- ✅ 完整的 JWT token 管理
-- ✅ 支援 token 重新整理
-- ✅ 支援 token 撤銷
+- ✅ 完整的 JWT token 驗證
 - ✅ MongoDB 黑名單系統
+- ✅ 支援內網/公網 API 模式
+- ✅ 嚴格的配置驗證
 
 ## 📋 系統需求
 
@@ -27,7 +27,7 @@
 pip install git+https://github.com/Hsieh-Yu-Hung/JWT_Midware.git
 
 # 安裝特定版本
-pip install git+https://github.com/Hsieh-Yu-Hung/JWT_Midware.git@v1.3.2
+pip install git+https://github.com/Hsieh-Yu-Hung/JWT_Midware.git@v2.0.0
 ```
 
 ### 本地開發
@@ -72,19 +72,7 @@ set_jwt_config(config)
 ### 2. 使用裝飾器
 
 ```python
-from jwt_auth_middleware import token_required, admin_required, create_access_token
-
-# 登入端點
-@app.route('/login', methods=['POST'])
-def login():
-    # 驗證使用者邏輯...
-    token_data = {
-        "sub": user["email"],
-        "email": user["email"],
-        "roles": user["roles"]
-    }
-    token = create_access_token(token_data)
-    return jsonify({"access_token": token})
+from jwt_auth_middleware import token_required, admin_required, role_required, permission_required
 
 # 受保護的端點
 @app.route('/protected')
@@ -109,17 +97,6 @@ def manager_route(current_user):
 @permission_required('delete_user')
 def delete_user_route(current_user):
     return jsonify({"message": "User deletion access granted"})
-
-# 登出端點（撤銷 token）
-@app.route('/logout', methods=['POST'])
-@token_required
-def logout(current_user):
-    from jwt_auth_middleware import revoke_token
-    auth_header = request.headers.get('Authorization')
-    if auth_header and auth_header.startswith('Bearer '):
-        token = auth_header.split(' ')[1]
-        revoke_token(token, reason="user_logout")
-    return jsonify({"message": "Logged out successfully"})
 ```
 
 ## 🎯 裝飾器
@@ -132,15 +109,6 @@ def logout(current_user):
 | `@permission_required(perms)` | 要求特定權限   | `@permission_required("delete_user")` |
 
 ## ⚙️ 配置
-
-### 新的配置系統
-
-本套件現在支援更靈活的配置管理，將敏感和非敏感配置分離：
-
-- **敏感配置**：由應用端提供（如 JWT 密鑰）
-- **非敏感配置**：存放在 `config.yaml` 檔案中（如演算法、過期時間等）
-
-**重要**：應用端必須提供 JWT_SECRET_KEY，套件本身不預設任何密鑰。
 
 ### 配置檔案
 
@@ -170,12 +138,19 @@ jwt:
   algorithm: HS256
   
   # Token 過期時間（分鐘）
-  access_token_expires: 120
-  refresh_token_expires: 1440
+  access_token_expires: 720  # 12 小時
+  refresh_token_expires: 1440  # 24 小時
+
+# API 模式配置
+api:
+  # API 模式選擇 (internal 或 public)
+  mode: internal  # 可選值: internal, public
 
 mongodb:
-  # MongoDB API URL（用於黑名單功能）
-  api_url: https://db-operation-xbbbehjawk.cn-shanghai-vpc.fcapp.run
+  # MongoDB API URL（用於黑名單功能）內網API
+  internal_api_url: https://db-operation-xbbbehjawk.cn-shanghai-vpc.fcapp.run
+  # MongoDB API URL（用於黑名單功能）公網API
+  public_api_url: https://db-operation-xbbbehjawk.cn-shanghai.fcapp.run
   
   # 黑名單相關配置
   blacklist:
@@ -193,9 +168,8 @@ app:
 
 ### 配置載入優先順序
 
-1. **直接傳入的參數**（最高優先級）
-2. **YAML 配置檔案**（用於非敏感配置）
-3. **預設值**（最低優先級）
+1. **YAML 配置檔案**（主要配置來源）
+2. **預設值**（備用）
 
 **注意**：JWT_SECRET_KEY 必須由應用端提供，不會從環境變數自動載入。
 
@@ -224,22 +198,6 @@ set_jwt_config(config)
 config = JWTConfig(secret_key=secret_key, config_file="custom_config.yaml")
 ```
 
-#### 程式化配置
-
-```python
-# 程式化設定配置（優先級最高）
-config = JWTConfig(
-    secret_key=secret_key,
-    config_file="config_example.yaml",
-    algorithm="HS512",
-    access_token_expires=60,
-    refresh_token_expires=720,
-    mongodb_api_url="https://custom-mongodb-api.example.com",
-    blacklist_collection="custom_blacklist",
-    enable_blacklist=False
-)
-```
-
 ### 配置驗證
 
 ```python
@@ -256,9 +214,38 @@ else:
 
 1. 確認應用端提供了 `JWT_SECRET_KEY`
 2. 確認 `config.yaml` 檔案格式正確
-3. 檢查配置檔案的優先順序
+3. 檢查配置檔案的結構
 4. 使用 `config.validate()` 驗證配置
 5. 確認已使用 `set_jwt_config()` 設定全域配置
+
+## 🔄 版本 2.0.0 重要變更
+
+### 架構重構
+
+- **業務邏輯分離**：Token 創建、刷新等業務邏輯函數已移至主專案
+- **專注中間件**：本套件現在專注於 JWT 驗證和存取控制
+- **簡化 API**：移除了 `create_access_token`、`refresh_access_token` 等函數
+
+### 新功能
+
+- **API 模式支援**：支援內網（internal）和公網（public）API 模式
+- **嚴格配置驗證**：更完善的配置檔案結構驗證
+- **改進錯誤處理**：更清晰的錯誤訊息和異常處理
+
+### 配置變更
+
+- **必要參數**：`secret_key` 和 `config_file` 現在都是必要參數
+- **API 模式**：新增 `api.mode` 配置，自動選擇對應的 MongoDB API URL
+- **結構驗證**：配置檔案必須包含所有必要區段和欄位
+
+### 遷移指南
+
+從 v1.x 升級到 v2.0.0：
+
+1. **更新配置檔案**：確保包含 `api.mode` 和對應的 API URL
+2. **移除業務邏輯**：將 token 創建邏輯移至主專案
+3. **更新導入**：移除不再提供的函數導入
+4. **測試驗證**：確保所有端點正常工作
 
 ## 🧪 運行測試
 
@@ -287,13 +274,13 @@ python -m pytest --cov=jwt_auth_middleware --cov-report=term-missing
 # 顯示所有命令
 make help
 
-# 更新 patch 版本 (1.0.0 -> 1.0.1)
+# 更新 patch 版本 (2.0.0 -> 2.0.1)
 make bump-patch
 
-# 更新 minor 版本 (1.0.0 -> 1.1.0)
+# 更新 minor 版本 (2.0.0 -> 2.1.0)
 make bump-minor
 
-# 更新 major 版本 (1.0.0 -> 2.0.0)
+# 更新 major 版本 (2.0.0 -> 3.0.0)
 make bump-major
 
 # 互動式 release
@@ -306,13 +293,13 @@ make release
 # 顯示所有命令
 bash make.sh help
 
-# 更新 patch 版本 (1.0.0 -> 1.0.1)
+# 更新 patch 版本 (2.0.0 -> 2.0.1)
 bash make.sh bump-patch
 
-# 更新 minor 版本 (1.0.0 -> 1.1.0)
+# 更新 minor 版本 (2.0.0 -> 2.1.0)
 bash make.sh bump-minor
 
-# 更新 major 版本 (1.0.0 -> 2.0.0)
+# 更新 major 版本 (2.0.0 -> 3.0.0)
 bash make.sh bump-major
 
 # 互動式 release
@@ -371,8 +358,8 @@ git commit -m "Bump version"
 git push origin main
 
 # 3. 建立標籤
-git tag v1.0.1
-git push origin v1.0.1
+git tag v2.0.1
+git push origin v2.0.1
 ```
 
 #### 自動化觸發條件
@@ -389,7 +376,9 @@ git push origin v1.0.1
 | 問題                                                   | 解決方案                                    |
 | ------------------------------------------------------ | ------------------------------------------- |
 | `ImportError: No module named 'jwt_auth_middleware'` | 確保套件已正確安裝：`pip list \| grep jwt` |
-| `ConfigurationError: JWT_SECRET_KEY not set`         | 在 app.config 中設定 JWT_SECRET_KEY         |
+| `ValueError: JWT_SECRET_KEY 是必要參數`              | 在創建 JWTConfig 時提供 secret_key 參數     |
+| `FileNotFoundError: 配置檔案不存在`                  | 確認配置檔案路徑正確                        |
+| `ValueError: 無效的 API 模式`                        | 確認 api.mode 設定為 internal 或 public     |
 | `Token validation failed`                            | 檢查 token 格式和 secret key                |
 
 ## 📝 注意事項
@@ -398,3 +387,4 @@ git push origin v1.0.1
 - 此套件不再自動發布到 PyPI
 - 所有版本都通過 GitHub Releases 管理
 - 建議使用 GitHub 安裝方式以獲得最新功能和修復
+- **v2.0.0 重構**：業務邏輯函數已移至主專案，本套件專注於中間件功能
