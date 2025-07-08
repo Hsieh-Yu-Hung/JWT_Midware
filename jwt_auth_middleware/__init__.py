@@ -1,55 +1,38 @@
 """
 JWT Authentication Middleware for Flask Applications
 
-A lightweight, easy-to-use JWT authentication middleware that can be integrated
-into any Flask application or deployed as a standalone service.
+A lightweight, easy-to-use JWT authentication middleware that provides
+decorators for JWT token validation and role-based access control.
+Business logic functions have been moved to main projects.
 """
 
-from .middleware import token_required, admin_required, role_required
+from .middleware import token_required, admin_required, role_required, permission_required
 from .jwt_utils import (
-    create_access_token, 
-    create_refresh_token,
-    create_token_pair,
     verify_token,
     verify_access_token,
     verify_refresh_token,
-    refresh_access_token,
-    revoke_token,
-    revoke_token_pair,
-    is_token_blacklisted,
-    remove_from_blacklist,
-    cleanup_expired_blacklist_tokens,
-    get_blacklist_statistics,
-    initialize_blacklist_system,
     set_jwt_config
 )
 from .config import JWTConfig, create_jwt_config
-from .blacklist import BlacklistManager
 
-__version__ = "1.3.2"
+__version__ = "2.0.0"
 __author__ = "Your Name"
 __email__ = "your.email@example.com"
 
 __all__ = [
+    # Middleware decorators
     "token_required",
     "admin_required", 
     "role_required",
-    "create_access_token",
-    "create_refresh_token",
-    "create_token_pair",
+    "permission_required",
+    
+    # Token verification functions
     "verify_token",
     "verify_access_token",
     "verify_refresh_token",
-    "refresh_access_token",
-    "revoke_token",
-    "revoke_token_pair",
+    
+    # Configuration
     "JWTConfig",
     "create_jwt_config",
-    "BlacklistManager",
-    "is_token_blacklisted",
-    "remove_from_blacklist",
-    "cleanup_expired_blacklist_tokens",
-    "get_blacklist_statistics",
-    "initialize_blacklist_system",
     "set_jwt_config"
 ] 
